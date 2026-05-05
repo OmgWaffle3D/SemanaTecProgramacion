@@ -4,41 +4,106 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Space Shooter - Inicio</title>
-    <link rel="stylesheet" href="../styles/style.css" />
+    <link rel="stylesheet" href="../styles/retro.css" />
 </head>
-<body>
-    <main class="game-container">
-        <section class="overlay">
-            <h1>Space Shooter</h1>
-            <h2>¿Lista para jugar?</h2>
-            <p class="description">Destruye los enemigos y no dejes que Diddy te atrape</p>
+<body class="retro-body">
+    <main class="retro-container">
+        
+        <div class="diamond left"></div>
+        <div class="diamond right"></div>
 
-            <section>
-                <h3>Controles</h3>
-                <p>
-                    <strong>Jugador 1 (P1):</strong><br>
-                    W - Arriba<br>
-                    A - Izquierda<br>
-                    S - Abajo<br>
-                    D - Derecha
-                </p>
-                <p>
-                    <strong>Jugador 2 (P2):</strong><br>
-                    ↑ - Arriba<br>
-                    ← - Izquierda<br>
-                    ↓ - Abajo<br>
-                    → - Derecha
-                </p>
-            </section>
+        <div class="retro-title-box">
+            <h1>START</h1>
+            <h2>NEW GAME</h2>
+        </div>
+        
+        <div class="retro-content">
+            <div class="retro-box dotted-border retro-menu-box">
+                <h3>MENU</h3>
+                <button id="startBtn" class="retro-btn start-btn">START</button>
+                <button class="retro-btn pause-btn">PAUSE</button>
+                <button class="retro-btn stop-btn">STOP</button>
+            </div>
 
-            <button id="startBtn" class="btn-primary">COMENZAR JUEGO</button>
-        </section>
+            <div class="retro-box dotted-border retro-player-box">
+                <div class="player-option active">
+                    <span class="cursor">▶</span> 1 PLAYER
+                </div>
+                <div class="player-option">
+                    <span class="cursor" style="visibility: hidden">▶</span> 2 PLAYER
+                </div>
+                <div class="controls-info">
+                    <p>P1: W A S D</p>
+                    <p>P2: &uarr; &larr; &darr; &rarr;</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="retro-footer">
+            <button class="retro-nav-btn">&lt;</button>
+            <button class="retro-nav-btn wide">SELECT</button>
+            <button class="retro-nav-btn">&gt;</button>
+        </div>
     </main>
+
+    <!-- Hidden container for YouTube background music -->
+    <div id="ytplayer" style="position: absolute; top: -9999px; left: -9999px;"></div>
 
     <script>
         document.getElementById('startBtn').addEventListener('click', () => {
             window.location.href = '../index.html?start=true';
         });
+
+        const playerOptions = document.querySelectorAll('.player-option');
+        playerOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                // Hide cursor on all options
+                playerOptions.forEach(opt => {
+                    opt.querySelector('.cursor').style.visibility = 'hidden';
+                    opt.classList.remove('active');
+                });
+                
+                // Show cursor on clicked option
+                option.querySelector('.cursor').style.visibility = 'visible';
+                option.classList.add('active');
+            });
+        });
+
+        // YouTube IFrame Player API for Background Music
+        var tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        var firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+        var player;
+        function onYouTubeIframeAPIReady() {
+            player = new YT.Player('ytplayer', {
+                height: '0',
+                width: '0',
+                videoId: 'XCV9kWbC31A',
+                playerVars: {
+                    'autoplay': 1,
+                    'loop': 1,
+                    'playlist': 'XCV9kWbC31A',
+                    'controls': 0
+                },
+                events: {
+                    'onReady': onPlayerReady
+                }
+            });
+        }
+
+        function onPlayerReady(event) {
+            event.target.setVolume(40); // Set a reasonable background volume
+            event.target.playVideo();
+            
+            // Fallback for browsers that block autoplay: play on first interaction
+            document.body.addEventListener('click', function() {
+                if (player && typeof player.getPlayerState === 'function' && player.getPlayerState() !== YT.PlayerState.PLAYING) {
+                    player.playVideo();
+                }
+            }, { once: true });
+        }
     </script>
 </body>
 </html>
