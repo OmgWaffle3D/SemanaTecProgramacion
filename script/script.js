@@ -3,12 +3,12 @@
 // Función para navegar a la página final
 function irAFinal(score) {
   localStorage.setItem('finalScore', score);
-  window.location.href = 'final.html';
+  window.location.href = 'pages/final.html';
 }
 
 // Función para navegar a inicio
 function irAInicio() {
-  window.location.href = 'inicio.html';
+  window.location.href = 'pages/inicio.html';
 }
 
 //Actualiza las posiciones y detecta colisiones
@@ -97,7 +97,7 @@ function gameLoop() {
 // --- 6. ASIGNACIÓN DE EVENTOS ---
 startBtn.addEventListener("click", initGame);
 restartBtn.addEventListener("click", () => {
-  window.location.href = 'inicio.html';
+  window.location.href = 'pages/inicio.html';
 });
 
 // Detectar si viene de pages/inicio.html y comenzar automáticamente
