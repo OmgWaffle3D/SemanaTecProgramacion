@@ -289,7 +289,7 @@ git push -u origin nombre-de-tu-rama
 
 ### 👥 Roles Asignados
 
-**Iñaki Peña**: Desarrollo de modalidad de 1 o 2 jugadores
+**Iñaki Peña**: Desarrollo de modalidad de 1 o 2 jugadores, apoyo con sonidos ambientales (Trump)
 
 **Nombre Apellido**: tu rol
 
