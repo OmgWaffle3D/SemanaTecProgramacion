@@ -287,6 +287,11 @@ git push -u origin nombre-de-tu-rama
 
 ---
 
+### 👥 Roles Asignados
+
+
+---
+
 ## ¡Feliz Codificación! 🎮
 
 ¿Preguntas o sugerencias? Crea un issue o abre una discusión en el repositorio.
