@@ -108,8 +108,11 @@ canvas {
   border-radius: 24px;
   z-index: 10;
   transition: opacity 0.3s ease, visibility 0.3s ease;
-  padding: 40px;
+  padding: 60px 40px;
   text-align: center;
+  gap: 25px;
+  overflow-y: auto;
+  line-height: 1.8;
 }
 
 .overlay.hidden {
@@ -120,14 +123,16 @@ canvas {
 
 .description {
   color: var(--text-secondary);
-  margin-top: 10px;
-  font-size: 0.95rem;
+  margin-top: 15px;
+  margin-bottom: 15px;
+  font-size: 1.05rem;
+  line-height: 1.6;
 }
 
-I changed the color
+
 .btn-primary {
   background: var(--accent-color);
-  color: "purple";
+  color: #000;
   border: none;
   padding: 14px 28px;
   border-radius: 12px;
@@ -157,4 +162,33 @@ I changed the color
 .final-score {
   font-size: 1.2rem;
   color: var(--text-secondary);
+}
+
+/* Mejora de espaciado en overlay */
+.overlay h1 {
+  font-size: 2rem;
+  margin-bottom: 10px;
+}
+
+.overlay h2 {
+  font-size: 1.5rem;
+  margin-bottom: 15px;
+  color: var(--accent-color);
+}
+
+.overlay h3 {
+  font-size: 1.2rem;
+  margin-bottom: 15px;
+  margin-top: 15px;
+}
+
+.overlay section {
+  margin: 10px 0;
+  max-width: 500px;
+}
+
+.overlay p {
+  margin: 10px 0;
+  font-size: 1rem;
+  line-height: 1.7;
 }
