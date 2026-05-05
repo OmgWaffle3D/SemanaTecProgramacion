@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Space Shooter - Un juego arcade moderno y minimalista" />
     <title>Space Shooter | Premium Arcade</title>
-    
+
     <!-- Fuentes de Google -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet" />
-    
-    <link rel="stylesheet" href="style.css" />
+
+    <link rel="stylesheet" href="styles/style.css" />
   </head>
   <body>
     <!-- Contenedor principal del juego -->
@@ -26,16 +26,7 @@
       <!-- Lienzo del juego -->
       <canvas id="gameCanvas" aria-label="Tablero de juego"></canvas>
 
-      <!-- Pantalla de Inicio (oculta, se usa pages/inicio.html) -->
-      <section id="startOverlay" class="overlay hidden" aria-hidden="true">
-        <h2>¿Lista para jugar?</h2>
-        <p class="description">Destruye los enemigos y no dejes que Diddy te atrape</p>
-        <button id="startBtn" class="btn-primary" aria-label="Comenzar juego">
-          COMENZAR JUEGO
-        </button>
-      </section>
-
-      <!-- Pantalla de Fin de Juego (oculta, se usa pages/final.html) -->
+      <!-- Pantalla de Fin de Juego -->
       <section id="gameOverOverlay" class="overlay hidden" aria-hidden="true">
         <h2 class="game-over-title">¡GAME OVER!</h2>
         <p class="final-score">Puntuación final: <span id="finalScoreVal">0</span></p>
@@ -45,6 +36,6 @@
       </section>
     </main>
 
-    <script src="script.js"></script>
+    <script src="script/script.js"></script>
   </body>
 </html>
