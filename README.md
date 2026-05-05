@@ -287,6 +287,14 @@ git push -u origin nombre-de-tu-rama
 
 ---
 
+### 👥 Roles Asignados
+
+**Iñaki Peña**: Desarrollo de modalidad de 1 o 2 jugadores
+
+**Nombre Apellido**: tu rol
+
+---
+
 ## ¡Feliz Codificación! 🎮
 
 ¿Preguntas o sugerencias? Crea un issue o abre una discusión en el repositorio.
