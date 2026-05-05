@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Shooter - Inicio</title>
+    <link rel="stylesheet" href="styles/style.css" />
+</head>
+<body>
+    <main class="game-container">
+        <section class="overlay">
+            <h1>Space Shooter</h1>
+            <h2>¿Lista para jugar?</h2>
+            <p class="description">Destruye los enemigos y no dejes que Diddy te atrape</p>
+
+            <section>
+                <h3>Controles</h3>
+                <p>
+                    <strong>Jugador 1 (P1):</strong><br>
+                    W - Arriba<br>
+                    A - Izquierda<br>
+                    S - Abajo<br>
+                    D - Derecha
+                </p>
+                <p>
+                    <strong>Jugador 2 (P2):</strong><br>
+                    ↑ - Arriba<br>
+                    ← - Izquierda<br>
+                    ↓ - Abajo<br>
+                    → - Derecha
+                </p>
+            </section>
+
+            <button id="startBtn" class="btn-primary">COMENZAR JUEGO</button>
+        </section>
+    </main>
+
+    <script>
+        document.getElementById('startBtn').addEventListener('click', () => {
+            window.location.href = 'index.html?start=true';
+        });
+    </script>
+</body>
+</html>
