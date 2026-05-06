@@ -276,7 +276,7 @@ function initGame() {
     state.lasers = []; state.enemyLasers = []; state.enemies = [];
     
     // Definir controles
-    const p1Controls = { left: 'ArrowLeft', right: 'ArrowRight', shoot: 'Space' };
+    const p1Controls = { left: 'ArrowLeft', right: 'ArrowRight', shoot: 'ArrowUp' };
     const p2Controls = { left: 'KeyA', right: 'KeyD', shoot: 'KeyW' };
 
     state.players = [new Player(1, p1Controls, canvas.width / 2 + 50)];
