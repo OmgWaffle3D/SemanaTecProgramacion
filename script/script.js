@@ -313,17 +313,8 @@ function update() {
                 state.enemyLasers.splice(index, 1);
                 handlePlayerHit();
             }
-        });
-    });
-}
-    state.enemyLasers.forEach((laser, index) => {
-        laser.update();
-        if (laser.y > canvas.height) state.enemyLasers.splice(index, 1);
-        if (checkCollision(laser, state.player)) {
-            state.enemyLasers.splice(index, 1);
-            handlePlayerHit();
-        }
-    });
+        }); 
+    }); 
 }
 
 function checkCollision(a, b) {
