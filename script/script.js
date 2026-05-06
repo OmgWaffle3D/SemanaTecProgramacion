@@ -184,8 +184,21 @@ function applyPowerUp(type) {
 
 function drawItems() {
     state.activeItems.forEach(item => {
-        let img = (item.type === 'SHIELD') ? images.itemShield : (item.type === 'RECOVERY') ? images.itemRecovery : images.itemDouble;
-        ctx.drawImage(img, item.x, item.y, item.width, item.height);
+        let img = images.itemDouble;
+        if (item.type === 'SHIELD') img = images.itemShield;
+        if (item.type === 'RECOVERY') img = images.itemRecovery;
+        
+        if (img && img.complete && img.naturalWidth !== 0) {
+            ctx.drawImage(img, item.x, item.y, item.width, item.height);
+        } else {
+            ctx.save();
+            ctx.fillStyle = (item.type === 'SHIELD') ? "#00FFFF" : 
+                            (item.type === 'RECOVERY') ? "#00FF00" : "#FF00FF";
+            ctx.beginPath();
+            ctx.arc(item.x + item.width / 2, item.y + item.height / 2, 20, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
     });
 }
 
