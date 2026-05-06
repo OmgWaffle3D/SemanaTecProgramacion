@@ -23,7 +23,7 @@ const CONFIG = {
     STEP_SIZE: 19,
     STEP_INTERVAL: 25,
     LASER_COOLDOWN: 15,
-    SIZES: { PLAYER: 94, ENEMY: 82 },
+    SIZES: { PLAYER: 94, ENEMY: 82, BOSS: 150 },
     LEVELS: {
         1: { kirk: 17, trump: 5, epstein: 2, rows: 4, cols: 6, music: '7R5ncn93KT4' },
         2: { kirk: 5, trump: 14, epstein: 5, rows: 4, cols: 6, music: 'SQk6UTdbRO0' },
@@ -36,7 +36,7 @@ const state = {
     countingDown: false,
     score: 0,
     level: 1,
-    lives: 3,
+    lives: 5,
     keys: {},
     enemies: [],
     lasers: [],
@@ -46,19 +46,32 @@ const state = {
     formationStepCounter: 0,
     rowsState: [],
     isMultiplayer: params.get('players') === '2',
-    players: [], // Cambiado de player: null a arreglo
-    ytPlayer: null
+    players: [],
+    ytPlayer: null,
+    // --- NUEVAS VARIABLES EASTER EGG ---
+    isPvP: false,
+    challengerActive: false,
+    challengerPhase: false,
+    challengerImageOpacity: 0,
+    challengerWinnerIndex: null
 };
 
 // --- CARGA DE ACTIVOS ---
 const images = {
-    player: new Image(), kirk: new Image(), trump: new Image(), epstein: new Image(), heart: new Image()
+    player: new Image(), kirk: new Image(), trump: new Image(), 
+    epstein: new Image(), heart: new Image(),
+    challengerScreen: new Image() // Imagen del Easter Egg
 };
 images.player.src = "assets/images/1player.png";
 images.kirk.src = "assets/images/charlieKirk1.png";
 images.trump.src = "assets/images/trump2.png";
 images.epstein.src = "assets/images/epstein3.png";
 images.heart.src = "assets/heartlive.png";
+images.challengerScreen.src = "https://i.postimg.cc/0jXqPq5B/image-5baa8f.jpg"; // URL de la imagen que subiste
+
+const sounds = {
+    alert: new Audio('https://www.myinstants.com/media/sounds/siren.mp3')
+};
 
 // --- YOUTUBE API INTEGRATION ---
 function onYouTubeIframeAPIReady() {
@@ -75,21 +88,11 @@ function onYouTubeIframeAPIReady() {
     });
 }
 
-function updateLevelMusic() {
+function updateLevelMusic(id = null) {
     if (state.ytPlayer && state.ytPlayer.loadVideoById) {
-        const nextMusicId = CONFIG.LEVELS[state.level].music;
-        console.log("Cambiando música a nivel:", state.level, "ID:", nextMusicId);
-        
-        // Usamos cue + play para asegurar que el buffer se llene
-        state.ytPlayer.cueVideoById({
-            videoId: nextMusicId,
-            startSeconds: 0,
-            suggestedQuality: 'small'
-        });
-        
-        setTimeout(() => {
-            state.ytPlayer.playVideo();
-        }, 500); // Pequeño retraso para asegurar la carga
+        const nextMusicId = id || CONFIG.LEVELS[state.level].music;
+        state.ytPlayer.cueVideoById({ videoId: nextMusicId, startSeconds: 0, suggestedQuality: 'small' });
+        setTimeout(() => state.ytPlayer.playVideo(), 500);
     }
 }
 
@@ -104,16 +107,26 @@ class Player {
         this.y = canvas.height - this.height - 30;
         this.cooldown = 0;
         this.controls = controls; 
-        this.color = shipTint;
+        this.color = (id === 1) ? shipTint : '#ffeb3b';
+        this.isBoss = false; // Para el modo PvP
     }
 
     update() {
         if (state.keys[this.controls.left]) this.x -= CONFIG.PLAYER_SPEED;
         if (state.keys[this.controls.right]) this.x += CONFIG.PLAYER_SPEED;
         
-        this.x = Math.max(0, Math.min(canvas.width - this.width, this.x));
-        if (this.cooldown > 0) this.cooldown--;
+        // En modo PvP permitimos movimiento arriba/abajo
+        if (state.isPvP) {
+            if (state.keys['KeyW'] && this.id === 2) this.y -= CONFIG.PLAYER_SPEED;
+            if (state.keys['KeyS'] && this.id === 2) this.y += CONFIG.PLAYER_SPEED;
+            if (state.keys['ArrowUp'] && this.id === 1) this.y -= CONFIG.PLAYER_SPEED;
+            if (state.keys['ArrowDown'] && this.id === 1) this.y += CONFIG.PLAYER_SPEED;
+        }
 
+        this.x = Math.max(0, Math.min(canvas.width - this.width, this.x));
+        this.y = Math.max(0, Math.min(canvas.height - this.height, this.y));
+
+        if (this.cooldown > 0) this.cooldown--;
         if (state.keys[this.controls.shoot] && this.cooldown === 0) {
             this.shoot();
             this.cooldown = CONFIG.LASER_COOLDOWN;
@@ -121,25 +134,26 @@ class Player {
     }
 
     shoot() {
-        // Color basado en el ID del jugador
-        const laserColor = this.id === 1 ? '#3cf4ff' : '#ffeb3b';
-        state.lasers.push(new Laser(this.x + this.width / 2 - 2, this.y, -CONFIG.LASER_SPEED, laserColor));
+        const laserColor = this.color;
+        const dy = (state.isPvP && this.isBoss) ? CONFIG.LASER_SPEED : -CONFIG.LASER_SPEED;
+        state.lasers.push(new Laser(this.x + this.width / 2 - 2, this.y, dy, laserColor, this.id));
     }
 
     draw() { 
         ctx.save();
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = this.id === 1 ? "#3cf4ff" : "#ffeb3b";
-        
-        // Dibujamos la imagen base
+        if (this.isBoss) {
+            ctx.filter = "brightness(0) invert(1) drop-shadow(0 0 20px red)";
+            this.width = CONFIG.SIZES.BOSS;
+            this.height = CONFIG.SIZES.BOSS;
+        }
         ctx.drawImage(images.player, this.x, this.y, this.width, this.height);
         
-        // Aplicamos el tinte de color seleccionado
-        ctx.globalCompositeOperation = 'source-atop';
-        ctx.globalAlpha = 0.3;
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
-        
+        if (!this.isBoss) {
+            ctx.globalCompositeOperation = 'source-atop';
+            ctx.globalAlpha = 0.3;
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+        }
         ctx.restore();
     }
 }
@@ -151,31 +165,30 @@ class Enemy {
         this.height = CONFIG.SIZES.ENEMY;
         this.gridX = gridX; this.gridY = gridY;
         this.x = -200; this.y = -200;
-        this.hp = (type === 'kirk' ? 1 : 2);
-        this.img = (type === 'kirk' ? images.kirk : (type === 'trump' ? images.trump : images.epstein));
+        this.hp = (type === 'challenger' ? 10 : (type === 'kirk' ? 1 : 2));
+        this.img = images[type] || images.epstein;
         this.shootTimer = 100 + Math.random() * 200;
     }
     update(rowX, rowY) {
         this.x = rowX + this.gridX * (this.width + 20);
         this.y = rowY;
-        if (this.type === 'epstein' && state.active) {
-            this.shootTimer--;
-            if (this.shootTimer <= 0) {
-                state.enemyLasers.push(new Laser(this.x + this.width / 2, this.y + this.height, 6, '#ff2d55'));
-                this.shootTimer = 150 + Math.random() * 200;
-            }
-        }
     }
     draw() { 
-        ctx.shadowBlur = 12;
-        ctx.shadowColor = (this.type === 'kirk' ? "#ff9500" : (this.type === 'trump' ? "#ff2d55" : "#ff00ff"));
+        ctx.save();
+        if (this.type === 'challenger') {
+            ctx.filter = "brightness(0) blur(2px) drop-shadow(0 0 15px white)";
+        }
         ctx.drawImage(this.img, this.x, this.y, this.width, this.height);
-        ctx.shadowBlur = 0;
+        ctx.restore();
     }
 }
 
 class Laser {
-    constructor(x, y, dy, color) { this.x = x; this.y = y; this.dy = dy; this.width = 5; this.height = 25; this.color = color; }
+    constructor(x, y, dy, color, ownerId = null) { 
+        this.x = x; this.y = y; this.dy = dy; 
+        this.width = 5; this.height = 25; 
+        this.color = color; this.ownerId = ownerId; 
+    }
     update() { this.y += this.dy; }
     draw() {
         ctx.fillStyle = this.color;
@@ -185,54 +198,52 @@ class Laser {
     }
 }
 
-// --- LÓGICA DE MOVIMIENTO ARCADE ---
+// --- LÓGICA DE MOVIMIENTO ---
 
 function spawnWave() {
+    if (state.isPvP) return;
     const config = CONFIG.LEVELS[state.level];
-    state.enemies = [];
-    state.rowsState = [];
+    state.enemies = []; state.rowsState = [];
     
-    // Ajuste de dificultad por multijugador
-    const enemyScale = state.isMultiplayer ? enemy_2p_scale : 1;
-    const extraRows = state.isMultiplayer ? 2 : 0;
-    const extraCols = state.isMultiplayer ? 2 : 0;
-
+    const scale = state.isMultiplayer ? enemy_2p_scale : 1;
     let enemyPool = [];
-    // Aumentamos la cantidad de enemigos proporcionalmente
-    const totalEnemiesMult = state.isMultiplayer ? 1.5 : 1;
-    for (let i = 0; i < config.kirk * totalEnemiesMult; i++) enemyPool.push('kirk');
-    for (let i = 0; i < config.trump * totalEnemiesMult; i++) enemyPool.push('trump');
-    for (let i = 0; i < config.epstein * totalEnemiesMult; i++) enemyPool.push('epstein');
+    const multiplier = state.isMultiplayer ? 1.5 : 1;
+
+    // --- CHANCE DE EASTER EGG ---
+    if (state.isMultiplayer && state.level >= 1 && !state.challengerActive) {
+        enemyPool.push('challenger');
+        state.challengerActive = true;
+    }
+
+    for (let i = 0; i < config.kirk * multiplier; i++) enemyPool.push('kirk');
+    for (let i = 0; i < config.trump * multiplier; i++) enemyPool.push('trump');
+    for (let i = 0; i < config.epstein * multiplier; i++) enemyPool.push('epstein');
     enemyPool.sort(() => Math.random() - 0.5);
 
-    const rows = config.rows + extraRows;
-    const cols = config.cols + extraCols;
-    const enemySize = CONFIG.SIZES.ENEMY * enemyScale;
+    const rows = config.rows + (state.isMultiplayer ? 2 : 0);
+    const cols = config.cols + (state.isMultiplayer ? 2 : 0);
 
     for (let row = 0; row < rows; row++) {
         state.rowsState.push({
             y: -150 - (row * 100), 
-            targetY: 100 + (row * (enemySize + 15)),
+            targetY: 110 + (row * (CONFIG.SIZES.ENEMY * scale + 20)),
             isEntering: true
         });
         for (let col = 0; col < cols; col++) {
             const type = enemyPool.pop() || 'kirk';
-            const enemy = new Enemy(type, col, row);
-            enemy.width = enemySize;  // Aplicamos el nuevo tamaño
-            enemy.height = enemySize;
-            state.enemies.push(enemy);
+            const e = new Enemy(type, col, row);
+            if (type === 'challenger') { e.width *= 1.5; e.height *= 1.5; }
+            else { e.width *= scale; e.height *= scale; }
+            state.enemies.push(e);
         }
     }
 }
 
 function updateRows() {
+    if (state.isPvP) return;
     if (state.enemies.length === 0) {
-        if (state.level < 3) { 
-            state.level++; 
-            updateLevelMusic(); // CAMBIO DE MÚSICA
-            spawnWave(); 
-        } 
-        else { handleGameOver(true); }
+        if (state.level < 3) { state.level++; spawnWave(); } 
+        else handleGameOver(true);
         return;
     }
     const allEntered = state.rowsState.every(row => !row.isEntering);
@@ -248,86 +259,113 @@ function updateRows() {
             state.formationStepCounter = 0;
             let minX = Math.min(...state.enemies.map(e => e.x));
             let maxX = Math.max(...state.enemies.map(e => e.x + e.width));
-            let hitEdge = false;
-            if (state.formationDirection === 1 && maxX + CONFIG.STEP_SIZE > canvas.width - 20) hitEdge = true;
-            if (state.formationDirection === -1 && minX - CONFIG.STEP_SIZE < 20) hitEdge = true;
-            if (hitEdge) {
-                state.rowsState.forEach(row => row.y += 35);
-                state.formationDirection *= -1;
-            } else {
-                state.formationX += CONFIG.STEP_SIZE * state.formationDirection;
-            }
+            if (state.formationDirection === 1 && maxX + CONFIG.STEP_SIZE > canvas.width - 20) state.formationDirection = -1;
+            else if (state.formationDirection === -1 && minX - CONFIG.STEP_SIZE < 20) state.formationDirection = 1;
+            else state.formationX += CONFIG.STEP_SIZE * state.formationDirection;
         }
     }
     state.enemies.forEach(enemy => {
-        const row = state.rowsState[enemy.gridY];
-        enemy.update(state.formationX, row.y);
-        state.players.forEach(p => {
-            if (checkCollision(enemy, p)) handlePlayerHit();
-        });
-        if (enemy.y + enemy.height > canvas.height) { handlePlayerHit(); spawnWave(); }
+        enemy.update(state.formationX, state.rowsState[enemy.gridY].y);
+        state.players.forEach(p => { if (checkCollision(enemy, p)) handlePlayerHit(); });
     });
 }
 
 // --- LÓGICA GENERAL ---
 
 function initGame() {
-    state.score = 0; state.level = 1; state.lives = 5; // Más vidas para coop
-    state.lasers = []; state.enemyLasers = []; state.enemies = [];
-    
-    // Definir controles
+    state.score = 0; state.level = 1; state.lives = 5;
+    state.players = [];
     const p1Controls = { left: 'ArrowLeft', right: 'ArrowRight', shoot: 'ArrowUp' };
     const p2Controls = { left: 'KeyA', right: 'KeyD', shoot: 'KeyW' };
 
-    state.players = [new Player(1, p1Controls, canvas.width / 2 + 50)];
+    state.players.push(new Player(1, p1Controls, canvas.width / 2 + 100));
+    if (state.isMultiplayer) state.players.push(new Player(2, p2Controls, canvas.width / 2 - 200));
     
-    if (state.isMultiplayer) {
-        state.players[0].x = canvas.width / 2 + 100; // Mover P1 a la derecha
-        state.players.push(new Player(2, p2Controls, canvas.width / 2 - 200)); // Añadir P2
-    }
     startCountdown();
+}
+
+function triggerChallengerEasterEgg(winnerId) {
+    state.active = false;
+    state.challengerPhase = true;
+    state.challengerWinnerIndex = winnerId - 1;
+    sounds.alert.play();
+    updateLevelMusic('Sz_kQuEM0mI'); // Música de tensión
+
+    let opacity = 0;
+    const fadeInt = setInterval(() => {
+        state.challengerImageOpacity += 0.05;
+        if (state.challengerImageOpacity >= 1) {
+            clearInterval(fadeInt);
+            setTimeout(startPvPMode, 4000); // 4 segundos de pantalla negra/imagen
+        }
+    }, 50);
+}
+
+function startPvPMode() {
+    state.isPvP = true;
+    state.challengerPhase = false;
+    state.active = true;
+    state.enemies = [];
+    state.lasers = [];
+    
+    // El que lo mató se vuelve el Boss arriba
+    const winner = state.players[state.challengerWinnerIndex];
+    winner.isBoss = true;
+    winner.x = canvas.width / 2 - 75;
+    winner.y = 50;
+
+    // El otro jugador abajo
+    const loser = state.players[state.challengerWinnerIndex === 0 ? 1 : 0];
+    loser.x = canvas.width / 2 - 47;
+    loser.y = canvas.height - 150;
+    
+    state.lives = 10; // Duelo a 10 toques
+    gameLoop();
 }
 
 function update() {
     if (!state.active) return;
-    
     state.players.forEach(p => p.update());
     updateRows();
 
     state.lasers.forEach((laser, lIdx) => {
         laser.update();
-        if (laser.y < -30) state.lasers.splice(lIdx, 1);
+        if (laser.y < -50 || laser.y > canvas.height + 50) state.lasers.splice(lIdx, 1);
         
+        // Colisión con enemigos
         state.enemies.forEach((enemy, eIdx) => {
             if (checkCollision(laser, enemy)) {
                 state.lasers.splice(lIdx, 1);
                 enemy.hp--;
                 if (enemy.hp <= 0) {
+                    if (enemy.type === 'challenger') triggerChallengerEasterEgg(laser.ownerId);
                     state.enemies.splice(eIdx, 1);
-                    state.score += (enemy.type === 'kirk' ? 10 : 20);
+                    state.score += 50;
                 }
             }
         });
-    });
 
-    state.enemyLasers.forEach((laser, index) => {
-        laser.update();
-        state.players.forEach(player => {
-            if (checkCollision(laser, player)) {
-                state.enemyLasers.splice(index, 1);
-                handlePlayerHit();
-            }
-        }); 
-    }); 
+        // Colisión PvP (Solo si el modo PvP está activo)
+        if (state.isPvP) {
+            state.players.forEach((p, pIdx) => {
+                if (laser.ownerId !== p.id && checkCollision(laser, p)) {
+                    state.lasers.splice(lIdx, 1);
+                    state.lives--; // En PvP las vidas son compartidas como contador de daño
+                    if (state.lives <= 0) handleGameOver(true);
+                }
+            });
+        }
+    });
 }
 
 function checkCollision(a, b) {
-    const p = 5; 
+    const p = 10; 
     return a.x + p < b.x + b.width - p && a.x + (a.width||5) - p > b.x + p &&
            a.y + p < b.y + b.height - p && a.y + (a.height||25) - p > b.y + p;
 }
 
 function handlePlayerHit() {
+    if (state.isPvP) return;
     state.lives--;
     if (state.lives <= 0) handleGameOver(false);
 }
@@ -340,34 +378,34 @@ function handleGameOver(won) {
 }
 
 function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // CORRECCIÓN: Dibujar a todos los jugadores del arreglo
-    state.players.forEach(p => p.draw());
-    
-    if (state.active || state.countingDown) {
-        state.enemies.forEach(e => e.draw());
+    if (state.challengerPhase) {
+        ctx.globalAlpha = state.challengerImageOpacity;
+        ctx.drawImage(images.challengerScreen, 0, 0, canvas.width, canvas.height);
+        ctx.globalAlpha = 1;
+        return;
     }
-    
+
+    state.players.forEach(p => p.draw());
+    if (state.active || state.countingDown) state.enemies.forEach(e => e.draw());
     state.lasers.forEach(l => l.draw());
-    state.enemyLasers.forEach(l => l.draw());
     
     ctx.fillStyle = "#f4d166"; 
     ctx.font = "20px 'Press Start 2P'";
     ctx.textAlign = "left";
-    ctx.fillText(`LEVEL: ${state.level}`, 40, 55);
-    
+    ctx.fillText(state.isPvP ? "DUEL" : `LEVEL: ${state.level}`, 40, 55);
     ctx.textAlign = "right";
     ctx.fillText(`SCORE: ${state.score}`, canvas.width - 40, 55);
-    ctx.textAlign = "left";
     
     if (state.active) {
-        const heartSize = 38;
         for (let i = 0; i < state.lives; i++) {
-            ctx.drawImage(images.heart, 40 + (i * 50), 75, heartSize, heartSize);
+            ctx.drawImage(images.heart, 40 + (i * 45), 75, 30, 30);
         }
     }
 }
+
 function startCountdown() {
     state.countingDown = true;
     countdownEl.classList.remove('hidden');
@@ -385,7 +423,6 @@ function startCountdown() {
     }, 1000);
 }
 
-function renderCountdownFrame() { if (state.countingDown) { draw(); requestAnimationFrame(renderCountdownFrame); } }
 function gameLoop() { if (state.active) { update(); draw(); requestAnimationFrame(gameLoop); } }
 
 window.addEventListener('keydown', e => state.keys[e.code] = true);
