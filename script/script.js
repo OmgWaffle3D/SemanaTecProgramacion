@@ -1,14 +1,10 @@
 // --- REDIRECCIÓN INICIAL ---
 const params = new URLSearchParams(window.location.search);
-const SHIP_COLORS = { aqua: '#3cf4ff', magenta: '#ff2df4', gold: '#f4d166' };
-const requestedShipColor = params.get('shipColor') || 'aqua';
-const shipTint = SHIP_COLORS[requestedShipColor] || SHIP_COLORS.aqua;
-
 if (params.get('start') !== 'true') {
     window.location.href = 'pages/inicio.html';
 }
 
-// --- CONFIGURACIÓN ESCALADA (1000x750) ---
+// --- CONFIGURACIÓN (1000x750) ---
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const countdownEl = document.getElementById("countdown");
@@ -27,7 +23,9 @@ const CONFIG = {
         1: { kirk: 17, trump: 5, epstein: 2, rows: 4, cols: 6, music: '7R5ncn93KT4' },
         2: { kirk: 5, trump: 14, epstein: 5, rows: 4, cols: 6, music: 'SQk6UTdbRO0' },
         3: { kirk: 7, trump: 7, epstein: 10, rows: 4, cols: 6, music: 'nFSs4Q7MyaY' }
-    }
+    },
+    ITEM_DROP_CHANCE: 0.15,
+    ITEM_SPEED: 3
 };
 
 const state = {
@@ -41,6 +39,9 @@ const state = {
     enemies: [],
     lasers: [],
     enemyLasers: [],
+    activeItems: [], 
+    hasDoubleShot: false, 
+    hasShield: false,    
     formationX: 60,
     formationDirection: 1,
     formationStepCounter: 0,
@@ -50,45 +51,26 @@ const state = {
 
 // --- CARGA DE ACTIVOS ---
 const images = {
-    player: new Image(), kirk: new Image(), trump: new Image(), epstein: new Image(), heart: new Image()
+    player: new Image(), kirk: new Image(), trump: new Image(), epstein: new Image(), heart: new Image(),
+    itemDouble: new Image(), itemShield: new Image(), itemRecovery: new Image()
 };
 images.player.src = "assets/images/1player.png";
 images.kirk.src = "assets/images/charlieKirk1.png";
 images.trump.src = "assets/images/trump2.png";
 images.epstein.src = "assets/images/epstein3.png";
 images.heart.src = "assets/heartlive.png";
+images.itemDouble.src = "assets/images/doubles_hot.png"; 
+images.itemShield.src = "assets/images/shield.png";
+images.itemRecovery.src = "assets/heartlive.png"; 
 
-// --- YOUTUBE API INTEGRATION ---
+// --- YOUTUBE API ---
 function onYouTubeIframeAPIReady() {
     state.ytPlayer = new YT.Player('ytplayer', {
         height: '0', width: '0',
         videoId: CONFIG.LEVELS[1].music,
         playerVars: { 'autoplay': 1, 'loop': 1, 'playlist': CONFIG.LEVELS[1].music, 'controls': 0 },
-        events: {
-            'onReady': (e) => {
-                e.target.setVolume(40);
-                e.target.playVideo();
-            }
-        }
+        events: { 'onReady': (e) => { e.target.setVolume(30); e.target.playVideo(); } }
     });
-}
-
-function updateLevelMusic() {
-    if (state.ytPlayer && state.ytPlayer.loadVideoById) {
-        const nextMusicId = CONFIG.LEVELS[state.level].music;
-        console.log("Cambiando música a nivel:", state.level, "ID:", nextMusicId);
-        
-        // Usamos cue + play para asegurar que el buffer se llene
-        state.ytPlayer.cueVideoById({
-            videoId: nextMusicId,
-            startSeconds: 0,
-            suggestedQuality: 'small'
-        });
-        
-        setTimeout(() => {
-            state.ytPlayer.playVideo();
-        }, 500); // Pequeño retraso para asegurar la carga
-    }
 }
 
 // --- CLASES ---
@@ -100,7 +82,6 @@ class Player {
         this.x = canvas.width / 2 - this.width / 2;
         this.y = canvas.height - this.height - 30;
         this.cooldown = 0;
-        this.color = shipTint;
     }
     update() {
         if (state.keys['ArrowLeft'] || state.keys['KeyA']) this.x -= CONFIG.PLAYER_SPEED;
@@ -113,21 +94,22 @@ class Player {
         }
     }
     shoot() {
-        state.lasers.push(new Laser(this.x + this.width / 2 - 2, this.y, -CONFIG.LASER_SPEED, this.color));
+        if (state.hasDoubleShot) {
+            state.lasers.push(new Laser(this.x + 20, this.y, -CONFIG.LASER_SPEED, '#FF00FF'));
+            state.lasers.push(new Laser(this.x + this.width - 20, this.y, -CONFIG.LASER_SPEED, '#FF00FF'));
+        } else {
+            state.lasers.push(new Laser(this.x + this.width / 2 - 2, this.y, -CONFIG.LASER_SPEED, '#3cf4ff'));
+        }
     }
     draw() { 
-        ctx.save();
+        if (state.hasShield) {
+            ctx.strokeStyle = "#00d2ff";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(this.x + this.width/2, this.y + this.height/2, 65, 0, Math.PI * 2);
+            ctx.stroke();
+        }
         ctx.drawImage(images.player, this.x, this.y, this.width, this.height);
-        ctx.globalCompositeOperation = 'source-atop';
-        ctx.globalAlpha = 0.35;
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
-        ctx.globalAlpha = 1;
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = this.color;
-        ctx.drawImage(images.player, this.x, this.y, this.width, this.height);
-        ctx.restore();
     }
 }
 
@@ -154,10 +136,7 @@ class Enemy {
         }
     }
     draw() { 
-        ctx.shadowBlur = 12;
-        ctx.shadowColor = (this.type === 'kirk' ? "#ff9500" : (this.type === 'trump' ? "#ff2d55" : "#ff00ff"));
         ctx.drawImage(this.img, this.x, this.y, this.width, this.height);
-        ctx.shadowBlur = 0;
     }
 }
 
@@ -166,32 +145,63 @@ class Laser {
     update() { this.y += this.dy; }
     draw() {
         ctx.fillStyle = this.color;
-        ctx.shadowBlur = 10; ctx.shadowColor = this.color;
         ctx.fillRect(this.x, this.y, this.width, this.height);
-        ctx.shadowBlur = 0;
     }
 }
 
-// --- LÓGICA DE MOVIMIENTO ARCADE ---
+// --- ITEM LOGIC (OPTIMIZED) ---
+function dropItem(x, y) {
+    if (Math.random() <= CONFIG.ITEM_DROP_CHANCE) {
+        const types = ['DOUBLE_SHOT', 'SHIELD', 'RECOVERY'];
+        const type = types[Math.floor(Math.random() * types.length)];
+        state.activeItems.push({ x: x, y: y, type: type, width: 45, height: 45 });
+    }
+}
 
+function updateItems() {
+    for (let i = state.activeItems.length - 1; i >= 0; i--) {
+        const item = state.activeItems[i];
+        item.y += CONFIG.ITEM_SPEED;
+        if (checkCollision(item, state.player)) {
+            applyPowerUp(item.type);
+            state.activeItems.splice(i, 1);
+            continue;
+        }
+        if (item.y > canvas.height + 50) state.activeItems.splice(i, 1);
+    }
+}
+
+function applyPowerUp(type) {
+    if (type === 'DOUBLE_SHOT') {
+        state.hasDoubleShot = true;
+        setTimeout(() => { state.hasDoubleShot = false; }, 10000);
+    } else if (type === 'SHIELD') {
+        state.hasShield = true;
+    } else if (type === 'RECOVERY') {
+        state.lives = Math.min(state.lives + 1, 5);
+    }
+}
+
+function drawItems() {
+    state.activeItems.forEach(item => {
+        let img = (item.type === 'SHIELD') ? images.itemShield : (item.type === 'RECOVERY') ? images.itemRecovery : images.itemDouble;
+        ctx.drawImage(img, item.x, item.y, item.width, item.height);
+    });
+}
+
+// --- CORE GAME LOGIC (OPTIMIZED) ---
 function spawnWave() {
     const config = CONFIG.LEVELS[state.level];
     state.enemies = []; state.rowsState = [];
     state.formationX = 60; state.formationDirection = 1; state.formationStepCounter = 0;
-
     let enemyPool = [];
     for (let i = 0; i < config.kirk; i++) enemyPool.push('kirk');
     for (let i = 0; i < config.trump; i++) enemyPool.push('trump');
     for (let i = 0; i < config.epstein; i++) enemyPool.push('epstein');
     enemyPool.sort(() => Math.random() - 0.5);
-
     for (let row = 0; row < config.rows; row++) {
         const reversedRowIndex = (config.rows - 1) - row;
-        state.rowsState.push({
-            y: -150 - (row * 150), 
-            targetY: 110 + (reversedRowIndex * (CONFIG.SIZES.ENEMY + 25)),
-            isEntering: true
-        });
+        state.rowsState.push({ y: -150 - (row * 150), targetY: 110 + (reversedRowIndex * (CONFIG.SIZES.ENEMY + 25)), isEntering: true });
         for (let col = 0; col < config.cols; col++) {
             const type = enemyPool.pop() || 'kirk';
             state.enemies.push(new Enemy(type, col, row));
@@ -201,148 +211,112 @@ function spawnWave() {
 
 function updateRows() {
     if (state.enemies.length === 0) {
-        if (state.level < 3) { 
-            state.level++; 
-            updateLevelMusic(); // CAMBIO DE MÚSICA
-            spawnWave(); 
-        } 
+        if (state.level < 3) { state.level++; spawnWave(); } 
         else { handleGameOver(true); }
         return;
     }
     const allEntered = state.rowsState.every(row => !row.isEntering);
-    state.rowsState.forEach((row) => {
-        if (row.isEntering) {
-            if (row.y < row.targetY) row.y += 4;
-            else row.isEntering = false;
-        }
-    });
+    state.rowsState.forEach(row => { if (row.isEntering) { if (row.y < row.targetY) row.y += 4; else row.isEntering = false; } });
     if (allEntered) {
         state.formationStepCounter++;
         if (state.formationStepCounter >= CONFIG.STEP_INTERVAL) {
             state.formationStepCounter = 0;
             let minX = Math.min(...state.enemies.map(e => e.x));
             let maxX = Math.max(...state.enemies.map(e => e.x + e.width));
-            let hitEdge = false;
-            if (state.formationDirection === 1 && maxX + CONFIG.STEP_SIZE > canvas.width - 20) hitEdge = true;
-            if (state.formationDirection === -1 && minX - CONFIG.STEP_SIZE < 20) hitEdge = true;
-            if (hitEdge) {
-                state.rowsState.forEach(row => row.y += 35);
-                state.formationDirection *= -1;
-            } else {
-                state.formationX += CONFIG.STEP_SIZE * state.formationDirection;
-            }
+            if ((state.formationDirection === 1 && maxX + CONFIG.STEP_SIZE > canvas.width - 20) || (state.formationDirection === -1 && minX - CONFIG.STEP_SIZE < 20)) {
+                state.rowsState.forEach(row => row.y += 35); state.formationDirection *= -1;
+            } else { state.formationX += CONFIG.STEP_SIZE * state.formationDirection; }
         }
     }
     state.enemies.forEach(enemy => {
-        const row = state.rowsState[enemy.gridY];
-        enemy.update(state.formationX, row.y);
+        enemy.update(state.formationX, state.rowsState[enemy.gridY].y);
         if (checkCollision(enemy, state.player)) handlePlayerHit();
         if (enemy.y + enemy.height > canvas.height) { handlePlayerHit(); spawnWave(); }
     });
 }
 
-// --- LÓGICA GENERAL ---
-
-function initGame() {
-    state.score = 0; state.level = 1; state.lives = 3;
-    state.player = new Player(); state.lasers = []; state.enemyLasers = []; state.enemies = [];
-    startCountdown();
-}
-
 function update() {
     if (!state.active) return;
-    state.player.update();
-    updateRows();
-
-    state.lasers.forEach((laser, lIdx) => {
-        laser.update();
-        if (laser.y < -30) state.lasers.splice(lIdx, 1);
-        state.enemies.forEach((enemy, eIdx) => {
-            if (checkCollision(laser, enemy)) {
-                state.lasers.splice(lIdx, 1);
-                enemy.hp--;
-                if (enemy.hp <= 0) {
-                    state.enemies.splice(eIdx, 1);
-                    state.score += (enemy.type === 'kirk' ? 10 : (enemy.type === 'trump' ? 20 : 30));
-                }
+    state.player.update(); updateRows(); updateItems();
+    // Optimized Laser Updates (Reverse Loop)
+    for (let i = state.lasers.length - 1; i >= 0; i--) {
+        const l = state.lasers[i]; l.update();
+        if (l.y < -50) { state.lasers.splice(i, 1); continue; }
+        let hit = false;
+        for (let j = state.enemies.length - 1; j >= 0; j--) {
+            const e = state.enemies[j];
+            if (checkCollision(l, e)) {
+                dropItem(e.x, e.y); e.hp--;
+                if (e.hp <= 0) { state.enemies.splice(j, 1); state.score += (e.type === 'kirk' ? 10 : (e.type === 'trump' ? 20 : 30)); }
+                hit = true; break;
             }
-        });
-    });
-
-    state.enemyLasers.forEach((laser, index) => {
-        laser.update();
-        if (laser.y > canvas.height) state.enemyLasers.splice(index, 1);
-        if (checkCollision(laser, state.player)) {
-            state.enemyLasers.splice(index, 1);
-            handlePlayerHit();
         }
-    });
+        if (hit) state.lasers.splice(i, 1);
+    }
+    for (let i = state.enemyLasers.length - 1; i >= 0; i--) {
+        const el = state.enemyLasers[i]; el.update();
+        if (el.y > canvas.height + 50) { state.enemyLasers.splice(i, 1); continue; }
+        if (checkCollision(el, state.player)) { state.enemyLasers.splice(i, 1); handlePlayerHit(); }
+    }
 }
 
 function checkCollision(a, b) {
-    const p = 5; 
-    return a.x + p < b.x + b.width - p && a.x + (a.width||5) - p > b.x + p &&
-           a.y + p < b.y + b.height - p && a.y + (a.height||25) - p > b.y + p;
+    if (!a || !b) return false;
+    const p = 5; const aW = a.width || 5; const aH = a.height || 25;
+    return a.x + p < b.x + b.width - p && a.x + aW - p > b.x + p && a.y + p < b.y + b.height - p && a.y + aH - p > b.y + p;
 }
 
-function handlePlayerHit() {
-    state.lives--;
-    if (state.lives <= 0) handleGameOver(false);
-}
-
-function handleGameOver(won) {
-    state.active = false;
-    localStorage.setItem('finalScore', state.score);
-    localStorage.setItem('gameResult', won ? 'WIN' : 'LOSS');
-    window.location.href = 'pages/final.html';
-}
+function handlePlayerHit() { if (state.hasShield) { state.hasShield = false; return; } state.lives--; if (state.lives <= 0) handleGameOver(false); }
+function handleGameOver(won) { state.active = false; localStorage.setItem('finalScore', state.score); localStorage.setItem('gameResult', won ? 'WIN' : 'LOSS'); window.location.href = 'pages/final.html'; }
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (state.player) state.player.draw();
-    if (state.active || state.countingDown) state.enemies.forEach(e => e.draw());
+    state.enemies.forEach(e => e.draw());
     state.lasers.forEach(l => l.draw());
-    state.enemyLasers.forEach(l => l.draw());
-    
-    ctx.fillStyle = "#f4d166"; 
-    ctx.font = "20px 'Press Start 2P'";
-    ctx.textAlign = "left";
+    state.enemyLasers.forEach(el => el.draw());
+    drawItems();
+    ctx.fillStyle = "#f4d166"; ctx.font = "20px 'Press Start 2P'"; ctx.textAlign = "left";
     ctx.fillText(`LEVEL: ${state.level}`, 40, 55);
-    
-    ctx.textAlign = "right";
-    ctx.fillText(`SCORE: ${state.score}`, canvas.width - 40, 55);
-    ctx.textAlign = "left";
-    
-    if (state.active) {
-        const heartSize = 38;
-        for (let i = 0; i < state.lives; i++) {
-            ctx.drawImage(images.heart, 40 + (i * 50), 75, heartSize, heartSize);
-        }
-    }
+    ctx.textAlign = "right"; ctx.fillText(`SCORE: ${state.score}`, canvas.width - 40, 55);
+    if (state.active) { for (let i = 0; i < state.lives; i++) ctx.drawImage(images.heart, 40 + (i * 50), 75, 38, 38); }
 }
 
 function startCountdown() {
-    state.countingDown = true;
-    countdownEl.classList.remove('hidden');
+    state.countingDown = true; countdownEl.classList.remove('hidden');
     let count = 3;
     const timer = setInterval(() => {
         if (count > 0) countdownEl.textContent = count;
         else if (count === 0) countdownEl.textContent = "GO!";
-        else {
-            clearInterval(timer);
-            countdownEl.classList.add('hidden');
-            state.countingDown = false; state.active = true;
-            spawnWave(); gameLoop(); return;
-        }
+        else { clearInterval(timer); countdownEl.classList.add('hidden'); state.countingDown = false; state.active = true; spawnWave(); gameLoop(); return; }
         count--;
     }, 1000);
 }
 
-function renderCountdownFrame() { if (state.countingDown) { draw(); requestAnimationFrame(renderCountdownFrame); } }
 function gameLoop() { if (state.active) { update(); draw(); requestAnimationFrame(gameLoop); } }
-
 window.addEventListener('keydown', e => state.keys[e.code] = true);
 window.addEventListener('keyup', e => state.keys[e.code] = false);
 
-if (params.get('start') === 'true') initGame();
-draw();
+
+window.onload = () => {
+    if (typeof initGame === 'function') {
+        initGame(); 
+    } else {
+        console.error("initGame function is missing!");
+    }
+};
+
+function initGame() {
+    state.score = 0; 
+    state.level = 1; 
+    state.lives = 3;
+    state.activeItems = [];
+    state.lasers = [];
+    state.enemyLasers = [];
+    state.player = new Player(); 
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('start') === 'true') {
+        startCountdown();
+    }
+}
