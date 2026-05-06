@@ -96,16 +96,17 @@ function updateLevelMusic() {
 // --- CLASES ---
 
 class Player {
-constructor(id, controls, xPos) {
+    constructor(id, controls, xPos) {
         this.id = id;
         this.width = CONFIG.SIZES.PLAYER;
         this.height = CONFIG.SIZES.PLAYER;
         this.x = xPos;
         this.y = canvas.height - this.height - 30;
         this.cooldown = 0;
-        this.controls = controls; // { left, right, shoot }
+        this.controls = controls; 
         this.color = shipTint;
     }
+
     update() {
         if (state.keys[this.controls.left]) this.x -= CONFIG.PLAYER_SPEED;
         if (state.keys[this.controls.right]) this.x += CONFIG.PLAYER_SPEED;
@@ -118,30 +119,31 @@ constructor(id, controls, xPos) {
             this.cooldown = CONFIG.LASER_COOLDOWN;
         }
     }
+
     shoot() {
-        const color = this.id === 1 ? '#3cf4ff' : '#ffeb3b'; // Color distinto para P2
-        state.lasers.push(new Laser(this.x + this.width / 2 - 2, this.y, -CONFIG.LASER_SPEED, color));
+        // Color basado en el ID del jugador
+        const laserColor = this.id === 1 ? '#3cf4ff' : '#ffeb3b';
+        state.lasers.push(new Laser(this.x + this.width / 2 - 2, this.y, -CONFIG.LASER_SPEED, laserColor));
     }
-    draw() { 
-        ctx.shadowBlur = 15; 
-        ctx.shadowColor = this.id === 1 ? "#3cf4ff" : "#ffeb3b";
-        state.lasers.push(new Laser(this.x + this.width / 2 - 2, this.y, -CONFIG.LASER_SPEED, this.color));
-    }
+
     draw() { 
         ctx.save();
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = this.id === 1 ? "#3cf4ff" : "#ffeb3b";
+        
+        // Dibujamos la imagen base
         ctx.drawImage(images.player, this.x, this.y, this.width, this.height);
+        
+        // Aplicamos el tinte de color seleccionado
         ctx.globalCompositeOperation = 'source-atop';
-        ctx.globalAlpha = 0.35;
+        ctx.globalAlpha = 0.3;
         ctx.fillStyle = this.color;
         ctx.fillRect(this.x, this.y, this.width, this.height);
-        ctx.globalAlpha = 1;
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = this.color;
-        ctx.drawImage(images.player, this.x, this.y, this.width, this.height);
+        
         ctx.restore();
     }
 }
+
 class Enemy {
     constructor(type, gridX, gridY) {
         this.type = type;
@@ -191,7 +193,7 @@ function spawnWave() {
     state.rowsState = [];
     
     // Ajuste de dificultad por multijugador
-    const enemyScale = state.isMultiplayer ? MULTI_SCALE : 1;
+    const enemyScale = state.isMultiplayer ? enemy_2p_scale : 1;
     const extraRows = state.isMultiplayer ? 2 : 0;
     const extraCols = state.isMultiplayer ? 2 : 0;
 
@@ -260,7 +262,9 @@ function updateRows() {
     state.enemies.forEach(enemy => {
         const row = state.rowsState[enemy.gridY];
         enemy.update(state.formationX, row.y);
-        if (checkCollision(enemy, state.player)) handlePlayerHit();
+        state.players.forEach(p => {
+            if (checkCollision(enemy, p)) handlePlayerHit();
+        });
         if (enemy.y + enemy.height > canvas.height) { handlePlayerHit(); spawnWave(); }
     });
 }
@@ -272,7 +276,7 @@ function initGame() {
     state.lasers = []; state.enemyLasers = []; state.enemies = [];
     
     // Definir controles
-    const p1Controls = { left: 'ArrowLeft', right: 'ArrowRight', shoot: 'Space' };
+    const p1Controls = { left: 'ArrowLeft', right: 'ArrowRight', shoot: 'ArrowUp' };
     const p2Controls = { left: 'KeyA', right: 'KeyD', shoot: 'KeyW' };
 
     state.players = [new Player(1, p1Controls, canvas.width / 2 + 50)];
@@ -313,17 +317,8 @@ function update() {
                 state.enemyLasers.splice(index, 1);
                 handlePlayerHit();
             }
-        });
-    });
-}
-    state.enemyLasers.forEach((laser, index) => {
-        laser.update();
-        if (laser.y > canvas.height) state.enemyLasers.splice(index, 1);
-        if (checkCollision(laser, state.player)) {
-            state.enemyLasers.splice(index, 1);
-            handlePlayerHit();
-        }
-    });
+        }); 
+    }); 
 }
 
 function checkCollision(a, b) {
@@ -346,8 +341,14 @@ function handleGameOver(won) {
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (state.player) state.player.draw();
-    if (state.active || state.countingDown) state.enemies.forEach(e => e.draw());
+    
+    // CORRECCIÓN: Dibujar a todos los jugadores del arreglo
+    state.players.forEach(p => p.draw());
+    
+    if (state.active || state.countingDown) {
+        state.enemies.forEach(e => e.draw());
+    }
+    
     state.lasers.forEach(l => l.draw());
     state.enemyLasers.forEach(l => l.draw());
     
@@ -367,7 +368,6 @@ function draw() {
         }
     }
 }
-
 function startCountdown() {
     state.countingDown = true;
     countdownEl.classList.remove('hidden');
