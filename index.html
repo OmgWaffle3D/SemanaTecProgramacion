@@ -1,41 +1,20 @@
 <!DOCTYPE html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Space Shooter - Un juego arcade moderno y minimalista" />
-    <title>Space Shooter | Premium Arcade</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Shooter - Mission Active</title>
+    <link rel="stylesheet" href="styles/retro.css" />
+</head>
+<body class="retro-body">
+    <div class="game-container">
+        <h2 id="countdown" class="hidden">3</h2>
+        <canvas id="gameCanvas"></canvas>
+    </div>
 
-    <!-- Fuentes de Google -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet" />
+    <div id="ytplayer"></div>
 
-    <link rel="stylesheet" href="styles/style.css" />
-  </head>
-  <body>
-    <!-- Contenedor principal del juego -->
-    <main class="game-container">
-      <header class="header">
-        <h1>Space Shooter</h1>
-        <div class="score-badge" aria-live="polite">
-          SCORE <span id="scoreVal">0</span>
-        </div>
-      </header>
-
-      <!-- Lienzo del juego -->
-      <canvas id="gameCanvas" aria-label="Tablero de juego"></canvas>
-
-      <!-- Pantalla de Fin de Juego -->
-      <section id="gameOverOverlay" class="overlay hidden" aria-hidden="true">
-        <h2 class="game-over-title">¡GAME OVER!</h2>
-        <p class="final-score">Puntuación final: <span id="finalScoreVal">0</span></p>
-        <button id="restartBtn" class="btn-primary" aria-label="Jugar de nuevo">
-          INTENTAR DE NUEVO
-        </button>
-      </section>
-    </main>
-
+    <script src="https://www.youtube.com/iframe_api"></script>
     <script src="script/script.js"></script>
-  </body>
+</body>
 </html>
