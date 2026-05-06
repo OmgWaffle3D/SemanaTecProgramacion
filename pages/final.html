@@ -4,23 +4,61 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Game Over</title>
-    <link rel="stylesheet" href="../styles/style.css" />
+    <link rel="stylesheet" href="../styles/retro.css" />
+    <style>
+        .game-over-title h1 {
+            color: var(--retro-red);
+            text-shadow: 0px 6px 0px var(--retro-red-dark);
+        }
+        .game-over-title h2 {
+            color: var(--retro-red);
+            text-shadow: 0px 4px 0px var(--retro-red-dark);
+        }
+        .results-box {
+            text-align: center;
+        }
+        .score-display {
+            font-size: 32px;
+            color: var(--retro-yellow);
+            text-shadow: 0px 4px 0px var(--retro-yellow-shadow);
+            margin: 40px 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+        }
+        .score-number {
+            color: var(--retro-green);
+        }
+    </style>
 </head>
-<body>
-    <main class="game-container">
-        <section class="overlay">
-            <h1>¡GAME OVER!</h1>
+<body class="retro-body">
+    <main class="retro-container">
+        
+        <div class="diamond left"></div>
+        <div class="diamond right"></div>
 
-            <section>
-                <h2>Resultados Finales</h2>
-                <p>
-                    <strong>Puntuación final:</strong> <span id="finalScore">0</span> puntos
-                </p>
-            </section>
+        <div class="retro-title-box game-over-title">
+            <h1>GAME</h1>
+            <h2>OVER</h2>
+        </div>
+        
+        <div class="retro-content" style="justify-content: center;">
+            <div class="retro-box dotted-border retro-menu-box" style="flex: 0 1 500px; padding: 40px;">
+                <h3>RESULTS</h3>
+                
+                <div class="score-display">
+                    SCORE: <span id="finalScore" class="score-number">0</span>
+                </div>
 
-            <button id="restartBtn" class="btn-primary">VOLVER A JUGAR</button>
-        </section>
+                <button id="restartBtn" class="retro-btn start-btn" style="width: 100%;">MAIN MENU</button>
+            </div>
+        </div>
+        
     </main>
+
+    <!-- Hidden container for YouTube background music -->
+    <div id="ytplayer" style="position: absolute; top: -9999px; left: -9999px;"></div>
 
     <script>
         // Obtener puntuación de localStorage o parámetro URL
@@ -35,6 +73,41 @@
         });
 
         mostrarResultados();
+
+        // YouTube IFrame Player API for Background Music (Optional for Game Over)
+        var tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        var firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+        var player;
+        function onYouTubeIframeAPIReady() {
+            player = new YT.Player('ytplayer', {
+                height: '0',
+                width: '0',
+                videoId: 'hrgzWEgCCFg',
+                playerVars: {
+                    'autoplay': 1,
+                    'loop': 1,
+                    'playlist': 'hrgzWEgCCFg',
+                    'controls': 0
+                },
+                events: {
+                    'onReady': onPlayerReady
+                }
+            });
+        }
+
+        function onPlayerReady(event) {
+            event.target.setVolume(40);
+            event.target.playVideo();
+            
+            document.body.addEventListener('click', function() {
+                if (player && typeof player.getPlayerState === 'function' && player.getPlayerState() !== YT.PlayerState.PLAYING) {
+                    player.playVideo();
+                }
+            }, { once: true });
+        }
     </script>
 </body>
 </html>
