@@ -3,111 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Game Over</title>
+    <title>Space Shooter - Mission Results</title>
     <link rel="stylesheet" href="../styles/retro.css" />
     <style>
-        .game-over-title h1 {
-            color: var(--retro-red);
-            text-shadow: 0px 6px 0px var(--retro-red-dark);
-        }
-        .game-over-title h2 {
-            color: var(--retro-red);
-            text-shadow: 0px 4px 0px var(--retro-red-dark);
-        }
-        .results-box {
-            text-align: center;
-        }
-        .score-display {
-            font-size: 32px;
-            color: var(--retro-yellow);
-            text-shadow: 0px 4px 0px var(--retro-yellow-shadow);
-            margin: 40px 0;
+        .final-layout {
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
             gap: 20px;
+            width: 100%;
+            max-width: 800px;
+            margin-bottom: 60px;
         }
-        .score-number {
-            color: var(--retro-green);
+
+        svg {
+            width: 100%;
+            height: 120px;
+            filter: drop-shadow(0 0 10px rgba(0,0,0,0.5));
+        }
+        text {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 60px;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+
+        .score-row {
+
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            width: 100%;
+        }
+
+        /* Caja individual de jugador con borde punteado */
+        .player-result {
+            flex: 1;
+            max-width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            font-size: 1.5rem;
+            margin-bottom: 40px;
+        }
+        #finalScoreNum {
+            color: var(--galaxy-blue);
+            font-size: 2.5rem;
+            text-shadow: 0 0 15px rgba(0, 210, 255, 0.5);
+
         }
     </style>
 </head>
 <body class="retro-body">
-    <main class="retro-container">
-        
-        <div class="diamond left"></div>
-        <div class="diamond right"></div>
+    
+    <header class="final-layout">
+        <svg id="winTitle" class="hidden" viewBox="0 0 800 120">
+            <defs>
+                <linearGradient id="gradWin" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" style="stop-color:#fff; stop-opacity:1" />
+                    <stop offset="50%" style="stop-color:#00ff00; stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#39ff14; stop-opacity:1" />
+                </linearGradient>
+            </defs>
+            <text x="50%" y="50%" fill="url(#gradWin)">YOU WON!</text>
+        </svg>
 
-        <div class="retro-title-box game-over-title">
-            <h1>GAME</h1>
-            <h2>OVER</h2>
-        </div>
-        
-        <div class="retro-content" style="justify-content: center;">
-            <div class="retro-box dotted-border retro-menu-box" style="flex: 0 1 500px; padding: 40px;">
-                <h3>RESULTS</h3>
-                
-                <div class="score-display">
-                    SCORE: <span id="finalScore" class="score-number">0</span>
-                </div>
+        <svg id="lossTitle" class="hidden" viewBox="0 0 800 120">
+            <defs>
+                <linearGradient id="gradLoss" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" style="stop-color:#fff; stop-opacity:1" />
+                    <stop offset="50%" style="stop-color:#ff0000; stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#ff00ff; stop-opacity:1" />
+                </linearGradient>
+            </defs>
+            <text x="50%" y="50%" fill="url(#gradLoss)">GAME OVER</text>
+        </svg>
+    </header>
 
-                <button id="restartBtn" class="retro-btn start-btn" style="width: 100%;">MAIN MENU</button>
-            </div>
+    <main class="glass-card container-full" style="max-width: 700px;">
+        <div class="score-row">
+            FINAL SCORE: <span id="finalScoreNum">0</span>
         </div>
-        
+
+        <button id="restartBtn" class="btn-galaxy">MAIN PAGE</button>
     </main>
 
-    <!-- Hidden container for YouTube background music -->
-    <div id="ytplayer" style="position: absolute; top: -9999px; left: -9999px;"></div>
+    <div id="ytplayer"></div>
 
-    <script>
-        // Obtener puntuación de localStorage o parámetro URL
-        function mostrarResultados() {
-            const params = new URLSearchParams(window.location.search);
-            const score = params.get('score') || localStorage.getItem('finalScore') || 0;
-            document.getElementById('finalScore').textContent = score;
-        }
-
-        document.getElementById('restartBtn').addEventListener('click', () => {
-            window.location.href = 'inicio.html';
-        });
-
-        mostrarResultados();
-
-        // YouTube IFrame Player API for Background Music (Optional for Game Over)
-        var tag = document.createElement('script');
-        tag.src = "https://www.youtube.com/iframe_api";
-        var firstScriptTag = document.getElementsByTagName('script')[0];
-        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-
-        var player;
-        function onYouTubeIframeAPIReady() {
-            player = new YT.Player('ytplayer', {
-                height: '0',
-                width: '0',
-                videoId: 'hrgzWEgCCFg',
-                playerVars: {
-                    'autoplay': 1,
-                    'loop': 1,
-                    'playlist': 'hrgzWEgCCFg',
-                    'controls': 0
-                },
-                events: {
-                    'onReady': onPlayerReady
-                }
-            });
-        }
-
-        function onPlayerReady(event) {
-            event.target.setVolume(40);
-            event.target.playVideo();
-            
-            document.body.addEventListener('click', function() {
-                if (player && typeof player.getPlayerState === 'function' && player.getPlayerState() !== YT.PlayerState.PLAYING) {
-                    player.playVideo();
-                }
-            }, { once: true });
-        }
-    </script>
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script src="../script/ui.js"></script>
 </body>
 </html>
