@@ -24,7 +24,7 @@
             background: linear-gradient(90deg, rgba(255, 0, 255, 0.2), rgba(0, 210, 255, 0.2));
             border-color: var(--galaxy-blue);
         }
-        #howToModal {
+        .modal-overlay {
             position: fixed;
             inset: 0;
             background: rgba(10, 5, 20, 0.9);
@@ -48,6 +48,7 @@
             <h3 style="color: var(--galaxy-blue); margin-bottom: 25px;">MENU</h3>
             <button id="startBtn" class="btn-galaxy">START</button>
             <button id="howToBtn" class="btn-galaxy btn-secondary">HOW TO PLAY</button>
+            <button id="shipColorBtn" class="btn-galaxy btn-secondary">SHIP COLOR</button>
         </section>
 
         <!-- Panel de Selección -->
@@ -65,7 +66,7 @@
     </main>
 
     <!-- Modal de Instrucciones -->
-    <div id="howToModal" class="hidden">
+    <div id="howToModal" class="hidden modal-overlay">
         <div class="glass-card" style="max-width: 600px;">
             <h2 class="text-gradient gradient-galaxy" style="font-size: 1.5rem; margin-bottom: 30px;">FLIGHT MANUAL</h2>
             <div style="text-align: left; margin-bottom: 30px; line-height: 1.8;">
@@ -74,6 +75,24 @@
                 <p style="color: #ccc; font-size: 0.7rem;">Mission: Eliminate all enemies. Don't lose your 3 hearts!</p>
             </div>
             <button id="closeModal" class="btn-galaxy">ENGAGE!</button>
+        </div>
+    </div>
+
+    <div id="shipColorModal" class="hidden modal-overlay">
+        <div class="glass-card" style="max-width: 500px;">
+            <h2 class="text-gradient gradient-galaxy" style="font-size: 1.5rem; margin-bottom: 24px;">SELECT SHIP COLOR</h2>
+            <div style="display: grid; gap: 16px; margin-bottom: 24px;">
+                <div class="player-option color-option active" data-color="aqua" style="border-color: #3cf4ff;">
+                    <span class="retro-text">> AQUA</span>
+                </div>
+                <div class="player-option color-option" data-color="magenta" style="border-color: #ff2df4;">
+                    <span class="retro-text">  MAGENTA</span>
+                </div>
+                <div class="player-option color-option" data-color="gold" style="border-color: #f4d166;">
+                    <span class="retro-text">  GOLD</span>
+                </div>
+            </div>
+            <button id="cancelColorBtn" class="btn-galaxy btn-secondary">CANCEL</button>
         </div>
     </div>
 
