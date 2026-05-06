@@ -58,10 +58,10 @@ images.player.src = "assets/images/1player.png";
 images.kirk.src = "assets/images/charlieKirk1.png";
 images.trump.src = "assets/images/trump2.png";
 images.epstein.src = "assets/images/epstein3.png";
-images.heart.src = "assets/heartlive.png";
-images.itemDouble.src = "assets/images/doubles_hot.png"; 
+images.heart.src = "assets/images/recovery.png";
+images.itemDouble.src = "assets/images/double_shot.png";
 images.itemShield.src = "assets/images/shield.png";
-images.itemRecovery.src = "assets/heartlive.png"; 
+images.itemRecovery.src = "assets/images/recovery.png"; 
 
 // --- YOUTUBE API ---
 function onYouTubeIframeAPIReady() {
