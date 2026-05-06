@@ -12,6 +12,7 @@ if (params.get('start') !== 'true') {
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const countdownEl = document.getElementById("countdown");
+const enemy_2p_scale = 0.75;
 
 canvas.width = 1000;
 canvas.height = 750;
@@ -37,7 +38,6 @@ const state = {
     level: 1,
     lives: 3,
     keys: {},
-    player: null,
     enemies: [],
     lasers: [],
     enemyLasers: [],
@@ -45,6 +45,8 @@ const state = {
     formationDirection: 1,
     formationStepCounter: 0,
     rowsState: [],
+    isMultiplayer: params.get('players') === '2',
+    players: [], // Cambiado de player: null a arreglo
     ytPlayer: null
 };
 
@@ -94,25 +96,35 @@ function updateLevelMusic() {
 // --- CLASES ---
 
 class Player {
-    constructor() {
+constructor(id, controls, xPos) {
+        this.id = id;
         this.width = CONFIG.SIZES.PLAYER;
         this.height = CONFIG.SIZES.PLAYER;
-        this.x = canvas.width / 2 - this.width / 2;
+        this.x = xPos;
         this.y = canvas.height - this.height - 30;
         this.cooldown = 0;
+        this.controls = controls; // { left, right, shoot }
         this.color = shipTint;
     }
     update() {
-        if (state.keys['ArrowLeft'] || state.keys['KeyA']) this.x -= CONFIG.PLAYER_SPEED;
-        if (state.keys['ArrowRight'] || state.keys['KeyD']) this.x += CONFIG.PLAYER_SPEED;
+        if (state.keys[this.controls.left]) this.x -= CONFIG.PLAYER_SPEED;
+        if (state.keys[this.controls.right]) this.x += CONFIG.PLAYER_SPEED;
+        
         this.x = Math.max(0, Math.min(canvas.width - this.width, this.x));
         if (this.cooldown > 0) this.cooldown--;
-        if ((state.keys['ArrowUp'] || state.keys['Space']) && this.cooldown === 0) {
+
+        if (state.keys[this.controls.shoot] && this.cooldown === 0) {
             this.shoot();
             this.cooldown = CONFIG.LASER_COOLDOWN;
         }
     }
     shoot() {
+        const color = this.id === 1 ? '#3cf4ff' : '#ffeb3b'; // Color distinto para P2
+        state.lasers.push(new Laser(this.x + this.width / 2 - 2, this.y, -CONFIG.LASER_SPEED, color));
+    }
+    draw() { 
+        ctx.shadowBlur = 15; 
+        ctx.shadowColor = this.id === 1 ? "#3cf4ff" : "#ffeb3b";
         state.lasers.push(new Laser(this.x + this.width / 2 - 2, this.y, -CONFIG.LASER_SPEED, this.color));
     }
     draw() { 
@@ -130,7 +142,6 @@ class Player {
         ctx.restore();
     }
 }
-
 class Enemy {
     constructor(type, gridX, gridY) {
         this.type = type;
@@ -176,25 +187,38 @@ class Laser {
 
 function spawnWave() {
     const config = CONFIG.LEVELS[state.level];
-    state.enemies = []; state.rowsState = [];
-    state.formationX = 60; state.formationDirection = 1; state.formationStepCounter = 0;
+    state.enemies = [];
+    state.rowsState = [];
+    
+    // Ajuste de dificultad por multijugador
+    const enemyScale = state.isMultiplayer ? MULTI_SCALE : 1;
+    const extraRows = state.isMultiplayer ? 2 : 0;
+    const extraCols = state.isMultiplayer ? 2 : 0;
 
     let enemyPool = [];
-    for (let i = 0; i < config.kirk; i++) enemyPool.push('kirk');
-    for (let i = 0; i < config.trump; i++) enemyPool.push('trump');
-    for (let i = 0; i < config.epstein; i++) enemyPool.push('epstein');
+    // Aumentamos la cantidad de enemigos proporcionalmente
+    const totalEnemiesMult = state.isMultiplayer ? 1.5 : 1;
+    for (let i = 0; i < config.kirk * totalEnemiesMult; i++) enemyPool.push('kirk');
+    for (let i = 0; i < config.trump * totalEnemiesMult; i++) enemyPool.push('trump');
+    for (let i = 0; i < config.epstein * totalEnemiesMult; i++) enemyPool.push('epstein');
     enemyPool.sort(() => Math.random() - 0.5);
 
-    for (let row = 0; row < config.rows; row++) {
-        const reversedRowIndex = (config.rows - 1) - row;
+    const rows = config.rows + extraRows;
+    const cols = config.cols + extraCols;
+    const enemySize = CONFIG.SIZES.ENEMY * enemyScale;
+
+    for (let row = 0; row < rows; row++) {
         state.rowsState.push({
-            y: -150 - (row * 150), 
-            targetY: 110 + (reversedRowIndex * (CONFIG.SIZES.ENEMY + 25)),
+            y: -150 - (row * 100), 
+            targetY: 100 + (row * (enemySize + 15)),
             isEntering: true
         });
-        for (let col = 0; col < config.cols; col++) {
+        for (let col = 0; col < cols; col++) {
             const type = enemyPool.pop() || 'kirk';
-            state.enemies.push(new Enemy(type, col, row));
+            const enemy = new Enemy(type, col, row);
+            enemy.width = enemySize;  // Aplicamos el nuevo tamaño
+            enemy.height = enemySize;
+            state.enemies.push(enemy);
         }
     }
 }
@@ -244,31 +268,54 @@ function updateRows() {
 // --- LÓGICA GENERAL ---
 
 function initGame() {
-    state.score = 0; state.level = 1; state.lives = 3;
-    state.player = new Player(); state.lasers = []; state.enemyLasers = []; state.enemies = [];
+    state.score = 0; state.level = 1; state.lives = 5; // Más vidas para coop
+    state.lasers = []; state.enemyLasers = []; state.enemies = [];
+    
+    // Definir controles
+    const p1Controls = { left: 'ArrowLeft', right: 'ArrowRight', shoot: 'Space' };
+    const p2Controls = { left: 'KeyA', right: 'KeyD', shoot: 'KeyW' };
+
+    state.players = [new Player(1, p1Controls, canvas.width / 2 + 50)];
+    
+    if (state.isMultiplayer) {
+        state.players[0].x = canvas.width / 2 + 100; // Mover P1 a la derecha
+        state.players.push(new Player(2, p2Controls, canvas.width / 2 - 200)); // Añadir P2
+    }
     startCountdown();
 }
 
 function update() {
     if (!state.active) return;
-    state.player.update();
+    
+    state.players.forEach(p => p.update());
     updateRows();
 
     state.lasers.forEach((laser, lIdx) => {
         laser.update();
         if (laser.y < -30) state.lasers.splice(lIdx, 1);
+        
         state.enemies.forEach((enemy, eIdx) => {
             if (checkCollision(laser, enemy)) {
                 state.lasers.splice(lIdx, 1);
                 enemy.hp--;
                 if (enemy.hp <= 0) {
                     state.enemies.splice(eIdx, 1);
-                    state.score += (enemy.type === 'kirk' ? 10 : (enemy.type === 'trump' ? 20 : 30));
+                    state.score += (enemy.type === 'kirk' ? 10 : 20);
                 }
             }
         });
     });
 
+    state.enemyLasers.forEach((laser, index) => {
+        laser.update();
+        state.players.forEach(player => {
+            if (checkCollision(laser, player)) {
+                state.enemyLasers.splice(index, 1);
+                handlePlayerHit();
+            }
+        });
+    });
+}
     state.enemyLasers.forEach((laser, index) => {
         laser.update();
         if (laser.y > canvas.height) state.enemyLasers.splice(index, 1);
