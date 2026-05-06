@@ -1,5 +1,9 @@
 // --- REDIRECCIÓN INICIAL ---
 const params = new URLSearchParams(window.location.search);
+const SHIP_COLORS = { aqua: '#3cf4ff', magenta: '#ff2df4', gold: '#f4d166' };
+const requestedShipColor = params.get('shipColor') || 'aqua';
+const shipTint = SHIP_COLORS[requestedShipColor] || SHIP_COLORS.aqua;
+
 if (params.get('start') !== 'true') {
     window.location.href = 'pages/inicio.html';
 }
@@ -100,6 +104,7 @@ constructor(id, controls, xPos) {
         this.y = canvas.height - this.height - 30;
         this.cooldown = 0;
         this.controls = controls; // { left, right, shoot }
+        this.color = shipTint;
     }
     update() {
         if (state.keys[this.controls.left]) this.x -= CONFIG.PLAYER_SPEED;
@@ -120,8 +125,21 @@ constructor(id, controls, xPos) {
     draw() { 
         ctx.shadowBlur = 15; 
         ctx.shadowColor = this.id === 1 ? "#3cf4ff" : "#ffeb3b";
+        state.lasers.push(new Laser(this.x + this.width / 2 - 2, this.y, -CONFIG.LASER_SPEED, this.color));
+    }
+    draw() { 
+        ctx.save();
         ctx.drawImage(images.player, this.x, this.y, this.width, this.height);
-        ctx.shadowBlur = 0;
+        ctx.globalCompositeOperation = 'source-atop';
+        ctx.globalAlpha = 0.35;
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = this.color;
+        ctx.drawImage(images.player, this.x, this.y, this.width, this.height);
+        ctx.restore();
     }
 }
 class Enemy {
