@@ -3,107 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Space Shooter - Inicio</title>
+    <title>Space Shooter - Start Mission</title>
     <link rel="stylesheet" href="../styles/retro.css" />
+    <style>
+        .main-title {
+            font-size: 5rem;
+            line-height: 1.1;
+            margin-bottom: 40px; /* Espacio bajo el título */
+        }
+        .player-option {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 15px;
+        }
+        .player-option.active {
+            background: linear-gradient(90deg, rgba(255, 0, 255, 0.2), rgba(0, 210, 255, 0.2));
+            border-color: var(--galaxy-blue);
+        }
+        #howToModal {
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 5, 20, 0.9);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
 </head>
 <body class="retro-body">
-    <main class="retro-container">
-        
-        <div class="diamond left"></div>
-        <div class="diamond right"></div>
+    
+    <header>
+        <h1 class="main-title text-gradient gradient-galaxy">SPACE<br>SHOOTER</h1>
+    </header>
 
-        <div class="retro-title-box">
-            <h1>START</h1>
-            <h2>NEW GAME</h2>
-        </div>
-        
-        <div class="retro-content">
-            <div class="retro-box dotted-border retro-menu-box">
-                <h3>MENU</h3>
-                <button id="startBtn" class="retro-btn start-btn">START</button>
-                <button class="retro-btn pause-btn">PAUSE</button>
-                <button class="retro-btn stop-btn">STOP</button>
-            </div>
+    <main class="layout-grid container-full">
+        <!-- Panel de Menú -->
+        <section class="glass-card" style="flex: 1;">
+            <h3 style="color: var(--galaxy-blue); margin-bottom: 25px;">MENU</h3>
+            <button id="startBtn" class="btn-galaxy">START</button>
+            <button id="howToBtn" class="btn-galaxy btn-secondary">HOW TO PLAY</button>
+        </section>
 
-            <div class="retro-box dotted-border retro-player-box">
-                <div class="player-option active">
-                    <span class="cursor">▶</span> 1 PLAYER
+        <!-- Panel de Selección -->
+        <section class="glass-card" style="flex: 1.5;">
+            <h3 style="color: var(--galaxy-pink); margin-bottom: 25px;">SELECT MODE</h3>
+            <div class="mode-selector">
+                <div id="opt1" class="player-option active">
+                    <span class="retro-text">> 1 PLAYER</span>
                 </div>
-                <div class="player-option">
-                    <span class="cursor" style="visibility: hidden">▶</span> 2 PLAYER
-                </div>
-                <div class="controls-info">
-                    <p>P1: W A S D</p>
-                    <p>P2: &uarr; &larr; &darr; &rarr;</p>
+                <div id="opt2" class="player-option">
+                    <span class="retro-text">  2 PLAYERS</span>
                 </div>
             </div>
-        </div>
-        
-        <div class="retro-footer">
-            <button class="retro-nav-btn">&lt;</button>
-            <button class="retro-nav-btn wide">SELECT</button>
-            <button class="retro-nav-btn">&gt;</button>
-        </div>
+        </section>
     </main>
 
-    <!-- Hidden container for YouTube background music -->
-    <div id="ytplayer" style="position: absolute; top: -9999px; left: -9999px;"></div>
+    <!-- Modal de Instrucciones -->
+    <div id="howToModal" class="hidden">
+        <div class="glass-card" style="max-width: 600px;">
+            <h2 class="text-gradient gradient-galaxy" style="font-size: 1.5rem; margin-bottom: 30px;">FLIGHT MANUAL</h2>
+            <div style="text-align: left; margin-bottom: 30px; line-height: 1.8;">
+                <p style="color: var(--galaxy-pink); margin-bottom: 10px;">1 PLAYER: ARROWS</p>
+                <p style="color: var(--galaxy-blue); margin-bottom: 20px;">PLAYER 2: WASD</p>
+                <p style="color: #ccc; font-size: 0.7rem;">Mission: Eliminate all enemies. Don't lose your 3 hearts!</p>
+            </div>
+            <button id="closeModal" class="btn-galaxy">ENGAGE!</button>
+        </div>
+    </div>
 
-    <script>
-        document.getElementById('startBtn').addEventListener('click', () => {
-            window.location.href = '../index.html?start=true';
-        });
+    <div id="ytplayer"></div>
 
-        const playerOptions = document.querySelectorAll('.player-option');
-        playerOptions.forEach(option => {
-            option.addEventListener('click', () => {
-                // Hide cursor on all options
-                playerOptions.forEach(opt => {
-                    opt.querySelector('.cursor').style.visibility = 'hidden';
-                    opt.classList.remove('active');
-                });
-                
-                // Show cursor on clicked option
-                option.querySelector('.cursor').style.visibility = 'visible';
-                option.classList.add('active');
-            });
-        });
-
-        // YouTube IFrame Player API for Background Music
-        var tag = document.createElement('script');
-        tag.src = "https://www.youtube.com/iframe_api";
-        var firstScriptTag = document.getElementsByTagName('script')[0];
-        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-
-        var player;
-        function onYouTubeIframeAPIReady() {
-            player = new YT.Player('ytplayer', {
-                height: '0',
-                width: '0',
-                videoId: 'XCV9kWbC31A',
-                playerVars: {
-                    'autoplay': 1,
-                    'loop': 1,
-                    'playlist': 'XCV9kWbC31A',
-                    'controls': 0
-                },
-                events: {
-                    'onReady': onPlayerReady
-                }
-            });
-        }
-
-        function onPlayerReady(event) {
-            event.target.setVolume(40); // Set a reasonable background volume
-            event.target.playVideo();
-            
-            // Fallback for browsers that block autoplay: play on first interaction
-            document.body.addEventListener('click', function() {
-                if (player && typeof player.getPlayerState === 'function' && player.getPlayerState() !== YT.PlayerState.PLAYING) {
-                    player.playVideo();
-                }
-            }, { once: true });
-        }
-    </script>
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script src="../script/ui.js"></script>
 </body>
 </html>
