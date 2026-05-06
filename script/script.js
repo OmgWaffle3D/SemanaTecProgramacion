@@ -191,7 +191,7 @@ function spawnWave() {
     state.rowsState = [];
     
     // Ajuste de dificultad por multijugador
-    const enemyScale = state.isMultiplayer ? MULTI_SCALE : 1;
+    const enemyScale = state.isMultiplayer ? enemy_2p_scale : 1;
     const extraRows = state.isMultiplayer ? 2 : 0;
     const extraCols = state.isMultiplayer ? 2 : 0;
 
