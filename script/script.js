@@ -58,10 +58,10 @@ images.player.src = "assets/images/1player.png";
 images.kirk.src = "assets/images/charlieKirk1.png";
 images.trump.src = "assets/images/trump2.png";
 images.epstein.src = "assets/images/epstein3.png";
-images.heart.src = "assets/heartlive.png";
-images.itemDouble.src = "assets/images/doubles_hot.png"; 
+images.heart.src = "assets/images/recovery.png";
+images.itemDouble.src = "assets/images/double_shot.png";
 images.itemShield.src = "assets/images/shield.png";
-images.itemRecovery.src = "assets/heartlive.png"; 
+images.itemRecovery.src = "assets/images/recovery.png"; 
 
 // --- YOUTUBE API ---
 function onYouTubeIframeAPIReady() {
@@ -202,6 +202,25 @@ function drawItems() {
     });
 }
 
+// Función para dibujar un corazón rojo
+function drawHeart(x, y, size) {
+    ctx.fillStyle = "#ff2d55";
+    ctx.beginPath();
+    // Mitad izquierda del corazón
+    ctx.arc(x - size * 0.25, y - size * 0.25, size * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    // Mitad derecha del corazón
+    ctx.beginPath();
+    ctx.arc(x + size * 0.25, y - size * 0.25, size * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    // Triángulo inferior
+    ctx.beginPath();
+    ctx.moveTo(x - size * 0.4, y - size * 0.1);
+    ctx.lineTo(x + size * 0.4, y - size * 0.1);
+    ctx.lineTo(x, y + size * 0.4);
+    ctx.fill();
+}
+
 // --- CORE GAME LOGIC (OPTIMIZED) ---
 function spawnWave() {
     const config = CONFIG.LEVELS[state.level];
@@ -292,7 +311,7 @@ function draw() {
     ctx.fillStyle = "#f4d166"; ctx.font = "20px 'Press Start 2P'"; ctx.textAlign = "left";
     ctx.fillText(`LEVEL: ${state.level}`, 40, 55);
     ctx.textAlign = "right"; ctx.fillText(`SCORE: ${state.score}`, canvas.width - 40, 55);
-    if (state.active) { for (let i = 0; i < state.lives; i++) ctx.drawImage(images.heart, 40 + (i * 50), 75, 38, 38); }
+    if (state.active) { for (let i = 0; i < state.lives; i++) drawHeart(65 + (i * 50), 90, 18); }
 }
 
 function startCountdown() {
