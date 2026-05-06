@@ -6,75 +6,164 @@
     <title>Game Over</title>
     <link rel="stylesheet" href="../styles/retro.css" />
     <style>
-        .game-over-title h1 {
-            color: var(--retro-red);
-            text-shadow: 0px 6px 0px var(--retro-red-dark);
-        }
+        /* Título "GAME OVER" en estilo retro amarillo */
+        .game-over-title h1,
         .game-over-title h2 {
-            color: var(--retro-red);
-            text-shadow: 0px 4px 0px var(--retro-red-dark);
-        }
-        .results-box {
-            text-align: center;
-        }
-        .score-display {
-            font-size: 32px;
             color: var(--retro-yellow);
-            text-shadow: 0px 4px 0px var(--retro-yellow-shadow);
-            margin: 40px 0;
+            text-shadow: 0px 6px 0px var(--retro-yellow-shadow);
+        }
+
+        /* Contenedor de resultados con dos jugadores lado a lado */
+        .results-container {
             display: flex;
+            gap: 30px;
             justify-content: center;
-            align-items: center;
+            width: 100%;
+        }
+
+        /* Caja individual de jugador con borde punteado */
+        .player-result {
+            flex: 1;
+            max-width: 300px;
+            display: flex;
+            flex-direction: column;
             gap: 20px;
         }
-        .score-number {
-            color: var(--retro-green);
+
+        /* Encabezado del jugador */
+        .player-result h3 {
+            font-size: 24px;
+            color: var(--retro-yellow);
+            text-shadow: 0px 4px 0px var(--retro-yellow-shadow);
+            margin: 0;
+            letter-spacing: 2px;
+        }
+
+        /* Separador visual entre secciones */
+        .score-section {
+            border-top: 2px dashed var(--retro-yellow);
+            padding-top: 15px;
+            padding-bottom: 15px;
+        }
+
+        .score-section:first-of-type {
+            border-top: none;
+            padding-top: 0;
+        }
+
+        .score-section:last-of-type {
+            border-bottom: none;
+        }
+
+        /* Etiqueta de puntuación (HIGHSCORE, PUNTAJE) */
+        .score-label {
+            font-size: 14px;
+            color: var(--retro-yellow);
+            text-shadow: none;
+            letter-spacing: 1px;
+            opacity: 0.8;
+        }
+
+        /* Valor de puntuación */
+        .score-value {
+            font-size: 28px;
+            color: var(--retro-yellow);
+            text-shadow: 0px 4px 0px var(--retro-yellow-shadow);
+            margin-top: 5px;
+        }
+
+        /* Botón "Volver a jugar" */
+        .play-again-btn {
+            margin-top: 20px;
+            width: 100%;
+            max-width: 400px;
+            align-self: center;
         }
     </style>
 </head>
 <body class="retro-body">
     <main class="retro-container">
-        
+
+        <!-- Decoración de diamantes en los lados -->
         <div class="diamond left"></div>
         <div class="diamond right"></div>
 
+        <!-- Título "GAME OVER" -->
         <div class="retro-title-box game-over-title">
             <h1>GAME</h1>
             <h2>OVER</h2>
         </div>
-        
+
+        <!-- Contenedor de resultados de ambos jugadores -->
         <div class="retro-content" style="justify-content: center;">
-            <div class="retro-box dotted-border retro-menu-box" style="flex: 0 1 500px; padding: 40px;">
-                <h3>RESULTS</h3>
-                
-                <div class="score-display">
-                    SCORE: <span id="finalScore" class="score-number">0</span>
+            <div class="results-container">
+
+                <!-- Resultados Jugador 1 -->
+                <div class="retro-box dotted-border player-result">
+                    <h3>JUGADOR 1</h3>
+
+                    <div class="score-section">
+                        <div class="score-label">HIGHSCORE</div>
+                        <div class="score-value" id="player1Highscore">0</div>
+                    </div>
+
+                    <div class="score-section">
+                        <div class="score-label">PUNTAJE</div>
+                        <div class="score-value" id="player1Score">0</div>
+                    </div>
                 </div>
 
-                <button id="restartBtn" class="retro-btn start-btn" style="width: 100%;">MAIN MENU</button>
+                <!-- Resultados Jugador 2 -->
+                <div class="retro-box dotted-border player-result">
+                    <h3>JUGADOR 2</h3>
+
+                    <div class="score-section">
+                        <div class="score-label">HIGHSCORE</div>
+                        <div class="score-value" id="player2Highscore">0</div>
+                    </div>
+
+                    <div class="score-section">
+                        <div class="score-label">PUNTAJE</div>
+                        <div class="score-value" id="player2Score">0</div>
+                    </div>
+                </div>
+
             </div>
         </div>
-        
+
+        <!-- Botón para volver a jugar -->
+        <button id="restartBtn" class="retro-btn start-btn play-again-btn">VOLVER A JUGAR</button>
+
     </main>
 
-    <!-- Hidden container for YouTube background music -->
+    <!-- Contenedor oculto para música de fondo de YouTube -->
     <div id="ytplayer" style="position: absolute; top: -9999px; left: -9999px;"></div>
 
     <script>
-        // Obtener puntuación de localStorage o parámetro URL
+        // Mostrar resultados de ambos jugadores desde localStorage
         function mostrarResultados() {
-            const params = new URLSearchParams(window.location.search);
-            const score = params.get('score') || localStorage.getItem('finalScore') || 0;
-            document.getElementById('finalScore').textContent = score;
+            // Jugador 1
+            const player1Highscore = localStorage.getItem('player1Highscore') || 0;
+            const player1Score = localStorage.getItem('player1Score') || 0;
+            document.getElementById('player1Highscore').textContent = player1Highscore;
+            document.getElementById('player1Score').textContent = player1Score;
+
+            // Jugador 2
+            const player2Highscore = localStorage.getItem('player2Highscore') || 0;
+            const player2Score = localStorage.getItem('player2Score') || 0;
+            document.getElementById('player2Highscore').textContent = player2Highscore;
+            document.getElementById('player2Score').textContent = player2Score;
         }
 
+        // Botón para volver a jugar y regresar a inicio
         document.getElementById('restartBtn').addEventListener('click', () => {
             window.location.href = 'inicio.html';
         });
 
+        // Mostrar resultados al cargar la página
         mostrarResultados();
 
-        // YouTube IFrame Player API for Background Music (Optional for Game Over)
+        // YouTube IFrame Player API para música de fondo
         var tag = document.createElement('script');
         tag.src = "https://www.youtube.com/iframe_api";
         var firstScriptTag = document.getElementsByTagName('script')[0];
@@ -101,7 +190,7 @@
         function onPlayerReady(event) {
             event.target.setVolume(40);
             event.target.playVideo();
-            
+
             document.body.addEventListener('click', function() {
                 if (player && typeof player.getPlayerState === 'function' && player.getPlayerState() !== YT.PlayerState.PLAYING) {
                     player.playVideo();
