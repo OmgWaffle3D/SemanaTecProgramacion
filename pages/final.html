@@ -115,16 +115,32 @@
     </header>
 
     <main class="glass-card container-full" style="max-width: 700px;">
-        <div class="score-row">
+        <div class="score-row" id="singlePlayerScore">
             FINAL SCORE: <span id="finalScoreNum">0</span>
         </div>
-        
-<div class="high-scores-container">
-    <h3>TOP PILOTS</h3>
-    <ul id="highScoresList" class="clean-list">
-        
-    </ul>
-</div>        <button id="restartBtn" class="btn-galaxy">MAIN PAGE</button>
+
+        <!-- Resultados en modo 2 jugadores -->
+        <div id="multiplayerResults" class="hidden" style="width: 100%; margin-bottom: 30px;">
+            <h3 style="color: #fff; text-align: center; margin-bottom: 20px;">FINAL RESULTS</h3>
+            <div class="score-row" style="flex-direction: column; gap: 15px;">
+                <div style="display: flex; justify-content: space-between; padding: 15px; background: rgba(60, 244, 255, 0.1); border-radius: 8px; border: 2px solid #3cf4ff;">
+                    <span>PLAYER 1</span>
+                    <span id="multiP1Score" style="color: #3cf4ff; font-weight: bold;">0</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 15px; background: rgba(255, 235, 59, 0.1); border-radius: 8px; border: 2px solid #ffeb3b;">
+                    <span>PLAYER 2</span>
+                    <span id="multiP2Score" style="color: #ffeb3b; font-weight: bold;">0</span>
+                </div>
+                <div id="winnerMessage" style="text-align: center; color: #39ff14; font-size: 1.3rem; margin-top: 10px; font-weight: bold;">
+                </div>
+            </div>
+        </div>
+
+        <div class="high-scores-container">
+            <h3>TOP PILOTS</h3>
+            <ul id="highScoresList" class="clean-list"></ul>
+        </div>
+        <button id="restartBtn" class="btn-galaxy">MAIN PAGE</button>
     </main>
 
     <div id="ytplayer"></div>
