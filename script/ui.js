@@ -98,14 +98,44 @@ document.addEventListener('DOMContentLoaded', () => {
         // Recupera el resultado del juego y puntuación del localStorage
         const finalScore = localStorage.getItem('finalScore') || 0;
         const gameResult = localStorage.getItem('gameResult') || 'LOSS';
+        const isMultiplayer = localStorage.getItem('multiplayer') === 'true';
+        const player1Score = localStorage.getItem('player1Score') || 0;
+        const player2Score = localStorage.getItem('player2Score') || 0;
+        const winner = localStorage.getItem('winner');
 
         // Referencias a elementos de la pantalla final
         const winTitle = document.getElementById('winTitle');
         const lossTitle = document.getElementById('lossTitle');
         const scoreDisplay = document.getElementById('finalScoreNum');
+        const multiplayerResults = document.getElementById('multiplayerResults');
+        const singlePlayerScore = document.getElementById('singlePlayerScore');
 
-        // Muestra la puntuación final
-        if (scoreDisplay) scoreDisplay.textContent = finalScore;
+        // Muestra la puntuación final (o modo multijugador)
+        if (isMultiplayer) {
+            // Oculta puntuación individual, muestra resultados de ambos
+            singlePlayerScore.classList.add('hidden');
+            multiplayerResults.classList.remove('hidden');
+
+            // Muestra puntuaciones
+            document.getElementById('multiP1Score').textContent = player1Score;
+            document.getElementById('multiP2Score').textContent = player2Score;
+
+            // Muestra ganador
+            const winnerMessage = document.getElementById('winnerMessage');
+            if (winner == 1) {
+                winnerMessage.textContent = '🎖️ PLAYER 1 WINS!';
+                winnerMessage.style.color = '#3cf4ff';
+            } else if (winner == 2) {
+                winnerMessage.textContent = '🎖️ PLAYER 2 WINS!';
+                winnerMessage.style.color = '#ffeb3b';
+            } else {
+                winnerMessage.textContent = '⚔️ IT\'S A TIE!';
+                winnerMessage.style.color = '#f4d166';
+            }
+        } else {
+            // Modo 1 jugador: muestra puntuación individual
+            if (scoreDisplay) scoreDisplay.textContent = finalScore;
+        }
 
         // Muestra mensaje de victoria o derrota según el resultado
         if (gameResult === 'WIN') {
@@ -116,12 +146,47 @@ document.addEventListener('DOMContentLoaded', () => {
             winTitle?.classList.add('hidden');
         }
 
+        // Carga y muestra highscores
+        displayHighScores();
+
         // Botón para reiniciar el juego (vuelve a inicio)
         restartBtn.onclick = () => {
             window.location.href = 'inicio.html';
         };
     }
 });
+
+/**
+ * Carga y muestra la lista de highscores en la pantalla
+ */
+function displayHighScores() {
+    const highScoresList = document.getElementById('highScoresList');
+    if (!highScoresList) return;
+
+    // Obtiene highscores del localStorage
+    const scoresJson = localStorage.getItem('highScores');
+    const scores = scoresJson ? JSON.parse(scoresJson) : [];
+
+    // Limpia la lista
+    highScoresList.innerHTML = '';
+
+    // Si no hay highscores, muestra mensaje
+    if (scores.length === 0) {
+        highScoresList.innerHTML = '<li class="score-item" style="text-align: center; color: #999;">NO HIGH SCORES YET</li>';
+        return;
+    }
+
+    // Muestra los top 10
+    scores.slice(0, 10).forEach((score, index) => {
+        const li = document.createElement('li');
+        li.className = 'score-item';
+        li.innerHTML = `
+            <span>${index + 1}. ${score.name}</span>
+            <span>${score.score}</span>
+        `;
+        highScoresList.appendChild(li);
+    });
+}
 
 // --- YOUTUBE API CALLBACK ---
 /**

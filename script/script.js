@@ -100,7 +100,8 @@ const state = {
     countingDown: false,        // ¿Se está mostrando la cuenta regresiva?
 
     // Puntuación y progreso
-    score: 0,                   // Puntuación acumulada del jugador
+    score: 0,                   // Puntuación acumulada del jugador (para compatibilidad)
+    playerScores: { 1: 0, 2: 0 }, // Puntuaciones individuales por jugador
     level: 1,                   // Nivel actual (1-3)
     lives: 3,                   // Vidas del jugador
 
@@ -179,6 +180,72 @@ function isControlPressed(control) {
         return control.some(keyCode => state.keys[keyCode]);
     }
     return !!state.keys[control];
+}
+
+/**
+ * Actualiza la interfaz de scoreboards en tiempo real
+ * Muestra la puntuación actual de cada jugador
+ */
+function updateScoreboardUI() {
+    const score1El = document.getElementById('score1');
+    const score2El = document.getElementById('score2');
+
+    if (score1El) score1El.textContent = state.playerScores[1];
+    if (score2El) score2El.textContent = state.playerScores[2];
+}
+
+/**
+ * Muestra u oculta el segundo scoreboard basado en el modo de juego
+ */
+function toggleScoreboard2() {
+    const scoreboard2 = document.getElementById('scoreboard2');
+    if (scoreboard2) {
+        if (state.isMultiplayer) {
+            scoreboard2.classList.remove('hidden');
+        } else {
+            scoreboard2.classList.add('hidden');
+        }
+    }
+}
+
+/**
+ * Obtiene la lista de highscores del localStorage
+ * @returns {Array} Array de objetos con {name, score}
+ */
+function getHighScores() {
+    const scores = localStorage.getItem('highScores');
+    return scores ? JSON.parse(scores) : [];
+}
+
+/**
+ * Guarda los highscores en localStorage
+ * @param {Array} scores - Array de objetos con {name, score}
+ */
+function saveHighScores(scores) {
+    localStorage.setItem('highScores', JSON.stringify(scores));
+}
+
+/**
+ * Agrega una nueva puntuación a la lista de highscores
+ * @param {string} playerName - Nombre del piloto
+ * @param {number} score - Puntuación del piloto
+ */
+function addHighScore(playerName, score) {
+    let scores = getHighScores();
+
+    // Agrega la nueva puntuación
+    scores.push({ name: playerName, score: score });
+
+    // Ordena de mayor a menor
+    scores.sort((a, b) => b.score - a.score);
+
+    // Mantiene solo los top 10
+    scores = scores.slice(0, 10);
+
+    // Guarda
+    saveHighScores(scores);
+
+    return scores;
 }
 
 /**
@@ -267,11 +334,11 @@ class Player {
 
         if (this.hasDoubleShot) {
             // Dispara dos proyectiles a los lados
-            state.lasers.push(new Laser(this.x + 20, this.y, -CONFIG.LASER_SPEED, laserColor));
-            state.lasers.push(new Laser(this.x + this.width - 20, this.y, -CONFIG.LASER_SPEED, laserColor));
+            state.lasers.push(new Laser(this.x + 20, this.y, -CONFIG.LASER_SPEED, laserColor, this.id));
+            state.lasers.push(new Laser(this.x + this.width - 20, this.y, -CONFIG.LASER_SPEED, laserColor, this.id));
         } else {
             // Dispara un proyectil al centro
-            state.lasers.push(new Laser(this.x + this.width / 2 - 2, this.y, -CONFIG.LASER_SPEED, laserColor));
+            state.lasers.push(new Laser(this.x + this.width / 2 - 2, this.y, -CONFIG.LASER_SPEED, laserColor, this.id));
         }
     }
 
@@ -380,14 +447,16 @@ class Laser {
      * @param {number} y - Posición Y inicial
      * @param {number} dy - Velocidad vertical (negativa = arriba, positiva = abajo)
      * @param {string} color - Color hexadecimal del láser
+     * @param {number} playerId - ID del jugador que disparó (opcional, solo para disparos del jugador)
      */
-    constructor(x, y, dy, color) {
+    constructor(x, y, dy, color, playerId = null) {
         this.x = x;
         this.y = y;
         this.dy = dy;                  // Velocidad vertical
         this.width = 5;                // Ancho del rayo
         this.height = 25;              // Alto del rayo
         this.color = color;
+        this.playerId = playerId;      // ID del jugador que disparó
     }
 
     /**
@@ -676,7 +745,16 @@ function update() {
                 if (e.hp <= 0) {
                     state.enemies.splice(j, 1);
                     // Puntuación: Kirk=10, Trump=20, Epstein=30
-                    state.score += (e.type === 'kirk' ? 10 : (e.type === 'trump' ? 20 : 30));
+                    const points = e.type === 'kirk' ? 10 : (e.type === 'trump' ? 20 : 30);
+
+                    // Suma puntos al jugador que disparó
+                    if (l.playerId && state.playerScores[l.playerId] !== undefined) {
+                        state.playerScores[l.playerId] += points;
+                        updateScoreboardUI();  // Actualiza UI de scoreboards
+                    }
+
+                    // Actualiza puntuación total (suma de ambos jugadores)
+                    state.score = state.playerScores[1] + state.playerScores[2];
                 }
                 hit = true;
                 break;
@@ -763,8 +841,29 @@ function handlePlayerHit(player) {
  */
 function handleGameOver(won) {
     state.active = false;
-    localStorage.setItem('finalScore', state.score);
-    localStorage.setItem('gameResult', won ? 'WIN' : 'LOSS');
+
+    // Guarda puntuaciones en localStorage
+    if (state.isMultiplayer) {
+        // Modo 2 jugadores: guarda ambas puntuaciones y el ganador
+        localStorage.setItem('finalScore', state.score);
+        localStorage.setItem('gameResult', won ? 'WIN' : 'LOSS');
+        localStorage.setItem('player1Score', state.playerScores[1]);
+        localStorage.setItem('player2Score', state.playerScores[2]);
+
+        // Determina ganador por mayor puntuación
+        const winner = state.playerScores[1] > state.playerScores[2] ? 1 : (state.playerScores[2] > state.playerScores[1] ? 2 : 0);
+        localStorage.setItem('multiplayer', 'true');
+        localStorage.setItem('winner', winner); // 0 = empate, 1 = P1 gana, 2 = P2 gana
+    } else {
+        // Modo 1 jugador
+        localStorage.setItem('finalScore', state.playerScores[1]);
+        localStorage.setItem('gameResult', won ? 'WIN' : 'LOSS');
+        localStorage.setItem('multiplayer', 'false');
+    }
+
+    // Agrega a highscores
+    addHighScore('PILOT', state.score);
+
     window.location.href = 'pages/final.html';
 }
 
@@ -888,6 +987,7 @@ window.onload = () => {
 function initGame() {
     // Resetea puntuación y nivel
     state.score = 0;
+    state.playerScores = { 1: 0, 2: 0 };  // Resetea puntuaciones individuales
     state.level = 1;
     state.lives = 3;
 
@@ -932,6 +1032,12 @@ function initGame() {
 
     // Referencia del jugador principal (para compatibilidad)
     state.player = state.players[0];
+
+    // Muestra/oculta el segundo scoreboard según el modo
+    toggleScoreboard2();
+
+    // Inicializa los scoreboards a 0
+    updateScoreboardUI();
 
     // Verifica que el juego fue iniciado desde la pantalla de inicio
     const urlParams = new URLSearchParams(window.location.search);
