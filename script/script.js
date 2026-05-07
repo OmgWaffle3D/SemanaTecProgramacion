@@ -4,6 +4,31 @@ if (params.get('start') !== 'true') {
     window.location.href = 'pages/inicio.html';
 }
 
+const isMultiplayer = params.get('players') === '2';
+const selectedShipColor = params.get('shipColor') || 'aqua';
+
+const SHIP_TINTS = {
+    aqua: '#3cf4ff',
+    magenta: '#ff2df4',
+    gold: '#f4d166'
+};
+
+const SHIP_COLOR_ORDER = ['aqua', 'magenta', 'gold'];
+
+function normalizeShipColor(color) {
+    return SHIP_TINTS[color] ? color : 'aqua';
+}
+
+function getShipTint(color) {
+    return SHIP_TINTS[normalizeShipColor(color)];
+}
+
+function getAlternateShipColor(color) {
+    const normalized = normalizeShipColor(color);
+    const currentIndex = SHIP_COLOR_ORDER.indexOf(normalized);
+    return SHIP_COLOR_ORDER[(currentIndex + 2) % SHIP_COLOR_ORDER.length];
+}
+
 // --- CONFIGURACIÓN (1000x750) ---
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -36,12 +61,12 @@ const state = {
     lives: 3,
     keys: {},
     player: null,
+    players: [],
+    isMultiplayer,
     enemies: [],
     lasers: [],
     enemyLasers: [],
-    activeItems: [], 
-    hasDoubleShot: false, 
-    hasShield: false,    
+    activeItems: [],
     formationX: 60,
     formationDirection: 1,
     formationStepCounter: 0,
@@ -61,7 +86,7 @@ images.epstein.src = "assets/images/epstein3.png";
 images.heart.src = "assets/images/recovery.png";
 images.itemDouble.src = "assets/images/double_shot.png";
 images.itemShield.src = "assets/images/shield.png";
-images.itemRecovery.src = "assets/images/recovery.png"; 
+images.itemRecovery.src = "assets/images/recovery.png";
 
 // --- YOUTUBE API ---
 function onYouTubeIframeAPIReady() {
@@ -75,41 +100,84 @@ function onYouTubeIframeAPIReady() {
 
 // --- CLASES ---
 
+function isControlPressed(control) {
+    if (Array.isArray(control)) {
+        return control.some(keyCode => state.keys[keyCode]);
+    }
+    return !!state.keys[control];
+}
+
+function getPlayerStartPosition(index, totalPlayers) {
+    if (totalPlayers <= 1) {
+        return canvas.width / 2 - CONFIG.SIZES.PLAYER / 2;
+    }
+
+    const positions = [
+        canvas.width / 2 - CONFIG.SIZES.PLAYER - 28,
+        canvas.width / 2 + 28
+    ];
+
+    return positions[index] ?? (canvas.width / 2 - CONFIG.SIZES.PLAYER / 2);
+}
+
 class Player {
-    constructor() {
+    constructor(id, controls, xPos, shipColor) {
+        this.id = id;
+        this.controls = controls;
         this.width = CONFIG.SIZES.PLAYER;
         this.height = CONFIG.SIZES.PLAYER;
-        this.x = canvas.width / 2 - this.width / 2;
+        this.x = xPos;
         this.y = canvas.height - this.height - 30;
         this.cooldown = 0;
+        this.color = getShipTint(shipColor);
+        this.lives = 3;
+        this.maxLives = 5;
+        this.alive = true;
+        this.hasDoubleShot = false;
+        this.hasShield = false;
     }
     update() {
-        if (state.keys['ArrowLeft'] || state.keys['KeyA']) this.x -= CONFIG.PLAYER_SPEED;
-        if (state.keys['ArrowRight'] || state.keys['KeyD']) this.x += CONFIG.PLAYER_SPEED;
+        if (!this.alive) return;
+
+        if (isControlPressed(this.controls.left)) this.x -= CONFIG.PLAYER_SPEED;
+        if (isControlPressed(this.controls.right)) this.x += CONFIG.PLAYER_SPEED;
         this.x = Math.max(0, Math.min(canvas.width - this.width, this.x));
         if (this.cooldown > 0) this.cooldown--;
-        if ((state.keys['ArrowUp'] || state.keys['Space']) && this.cooldown === 0) {
+
+        if (isControlPressed(this.controls.shoot) && this.cooldown === 0) {
             this.shoot();
             this.cooldown = CONFIG.LASER_COOLDOWN;
         }
     }
     shoot() {
-        if (state.hasDoubleShot) {
-            state.lasers.push(new Laser(this.x + 20, this.y, -CONFIG.LASER_SPEED, '#FF00FF'));
-            state.lasers.push(new Laser(this.x + this.width - 20, this.y, -CONFIG.LASER_SPEED, '#FF00FF'));
+        const laserColor = this.color;
+        if (this.hasDoubleShot) {
+            state.lasers.push(new Laser(this.x + 20, this.y, -CONFIG.LASER_SPEED, laserColor));
+            state.lasers.push(new Laser(this.x + this.width - 20, this.y, -CONFIG.LASER_SPEED, laserColor));
         } else {
-            state.lasers.push(new Laser(this.x + this.width / 2 - 2, this.y, -CONFIG.LASER_SPEED, '#3cf4ff'));
+            state.lasers.push(new Laser(this.x + this.width / 2 - 2, this.y, -CONFIG.LASER_SPEED, laserColor));
         }
     }
-    draw() { 
-        if (state.hasShield) {
+    draw() {
+        if (!this.alive) return;
+
+        if (this.hasShield) {
             ctx.strokeStyle = "#00d2ff";
             ctx.lineWidth = 3;
             ctx.beginPath();
             ctx.arc(this.x + this.width/2, this.y + this.height/2, 65, 0, Math.PI * 2);
             ctx.stroke();
         }
+
+        ctx.save();
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = this.color;
         ctx.drawImage(images.player, this.x, this.y, this.width, this.height);
+        ctx.globalCompositeOperation = 'source-atop';
+        ctx.globalAlpha = 0.35;
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+        ctx.restore();
     }
 }
 
@@ -135,7 +203,7 @@ class Enemy {
             }
         }
     }
-    draw() { 
+    draw() {
         ctx.drawImage(this.img, this.x, this.y, this.width, this.height);
     }
 }
@@ -162,8 +230,10 @@ function updateItems() {
     for (let i = state.activeItems.length - 1; i >= 0; i--) {
         const item = state.activeItems[i];
         item.y += CONFIG.ITEM_SPEED;
-        if (checkCollision(item, state.player)) {
-            applyPowerUp(item.type);
+
+        const playerHit = state.players.find(player => player.alive && checkCollision(item, player));
+        if (playerHit) {
+            applyPowerUp(item.type, playerHit);
             state.activeItems.splice(i, 1);
             continue;
         }
@@ -171,14 +241,14 @@ function updateItems() {
     }
 }
 
-function applyPowerUp(type) {
+function applyPowerUp(type, player) {
     if (type === 'DOUBLE_SHOT') {
-        state.hasDoubleShot = true;
-        setTimeout(() => { state.hasDoubleShot = false; }, 10000);
+        player.hasDoubleShot = true;
+        setTimeout(() => { player.hasDoubleShot = false; }, 10000);
     } else if (type === 'SHIELD') {
-        state.hasShield = true;
+        player.hasShield = true;
     } else if (type === 'RECOVERY') {
-        state.lives = Math.min(state.lives + 1, 5);
+        player.lives = Math.min(player.lives + 1, player.maxLives);
     }
 }
 
@@ -187,12 +257,12 @@ function drawItems() {
         let img = images.itemDouble;
         if (item.type === 'SHIELD') img = images.itemShield;
         if (item.type === 'RECOVERY') img = images.itemRecovery;
-        
+
         if (img && img.complete && img.naturalWidth !== 0) {
             ctx.drawImage(img, item.x, item.y, item.width, item.height);
         } else {
             ctx.save();
-            ctx.fillStyle = (item.type === 'SHIELD') ? "#00FFFF" : 
+            ctx.fillStyle = (item.type === 'SHIELD') ? "#00FFFF" :
                             (item.type === 'RECOVERY') ? "#00FF00" : "#FF00FF";
             ctx.beginPath();
             ctx.arc(item.x + item.width / 2, item.y + item.height / 2, 20, 0, Math.PI * 2);
@@ -202,18 +272,14 @@ function drawItems() {
     });
 }
 
-// Función para dibujar un corazón rojo
 function drawHeart(x, y, size) {
     ctx.fillStyle = "#ff2d55";
     ctx.beginPath();
-    // Mitad izquierda del corazón
     ctx.arc(x - size * 0.25, y - size * 0.25, size * 0.3, 0, Math.PI * 2);
     ctx.fill();
-    // Mitad derecha del corazón
     ctx.beginPath();
     ctx.arc(x + size * 0.25, y - size * 0.25, size * 0.3, 0, Math.PI * 2);
     ctx.fill();
-    // Triángulo inferior
     ctx.beginPath();
     ctx.moveTo(x - size * 0.4, y - size * 0.1);
     ctx.lineTo(x + size * 0.4, y - size * 0.1);
@@ -241,9 +307,22 @@ function spawnWave() {
     }
 }
 
+function getClosestAlivePlayer(enemy) {
+    const alivePlayers = state.players.filter(player => player.alive);
+    if (alivePlayers.length === 0) return null;
+
+    const enemyCenterX = enemy.x + enemy.width / 2;
+    return alivePlayers.reduce((closest, player) => {
+        const playerCenterX = player.x + player.width / 2;
+        const closestDistance = Math.abs((closest.x + closest.width / 2) - enemyCenterX);
+        const playerDistance = Math.abs(playerCenterX - enemyCenterX);
+        return playerDistance < closestDistance ? player : closest;
+    });
+}
+
 function updateRows() {
     if (state.enemies.length === 0) {
-        if (state.level < 3) { state.level++; spawnWave(); } 
+        if (state.level < 3) { state.level++; spawnWave(); }
         else { handleGameOver(true); }
         return;
     }
@@ -262,15 +341,22 @@ function updateRows() {
     }
     state.enemies.forEach(enemy => {
         enemy.update(state.formationX, state.rowsState[enemy.gridY].y);
-        if (checkCollision(enemy, state.player)) handlePlayerHit();
-        if (enemy.y + enemy.height > canvas.height) { handlePlayerHit(); spawnWave(); }
+        state.players.forEach(player => {
+            if (player.alive && checkCollision(enemy, player)) handlePlayerHit(player);
+        });
+        if (enemy.y + enemy.height > canvas.height) {
+            const fallbackPlayer = getClosestAlivePlayer(enemy);
+            if (fallbackPlayer) handlePlayerHit(fallbackPlayer);
+            spawnWave();
+        }
     });
 }
 
 function update() {
     if (!state.active) return;
-    state.player.update(); updateRows(); updateItems();
-    // Optimized Laser Updates (Reverse Loop)
+    state.players.forEach(player => player.update());
+    updateRows();
+    updateItems();
     for (let i = state.lasers.length - 1; i >= 0; i--) {
         const l = state.lasers[i]; l.update();
         if (l.y < -50) { state.lasers.splice(i, 1); continue; }
@@ -288,7 +374,11 @@ function update() {
     for (let i = state.enemyLasers.length - 1; i >= 0; i--) {
         const el = state.enemyLasers[i]; el.update();
         if (el.y > canvas.height + 50) { state.enemyLasers.splice(i, 1); continue; }
-        if (checkCollision(el, state.player)) { state.enemyLasers.splice(i, 1); handlePlayerHit(); }
+        const hitPlayer = state.players.find(player => player.alive && checkCollision(el, player));
+        if (hitPlayer) {
+            state.enemyLasers.splice(i, 1);
+            handlePlayerHit(hitPlayer);
+        }
     }
 }
 
@@ -298,12 +388,38 @@ function checkCollision(a, b) {
     return a.x + p < b.x + b.width - p && a.x + aW - p > b.x + p && a.y + p < b.y + b.height - p && a.y + aH - p > b.y + p;
 }
 
-function handlePlayerHit() { if (state.hasShield) { state.hasShield = false; return; } state.lives--; if (state.lives <= 0) handleGameOver(false); }
+function handlePlayerHit(player) {
+    if (!player || !player.alive) return;
+
+    if (player.hasShield) {
+        player.hasShield = false;
+        return;
+    }
+
+    player.lives--;
+    if (player.lives <= 0) {
+        player.lives = 0;
+        player.alive = false;
+    }
+
+    if (state.players.every(entry => !entry.alive)) {
+        handleGameOver(false);
+    }
+}
+
 function handleGameOver(won) { state.active = false; localStorage.setItem('finalScore', state.score); localStorage.setItem('gameResult', won ? 'WIN' : 'LOSS'); window.location.href = 'pages/final.html'; }
+
+function drawPlayerLives(player, x, align = 'left') {
+    const liveCount = Math.max(0, player.lives);
+    for (let i = 0; i < liveCount; i++) {
+        const offset = align === 'right' ? -(i * 50) : (i * 50);
+        drawHeart(x + offset, 90, 18);
+    }
+}
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (state.player) state.player.draw();
+    state.players.forEach(player => player.draw());
     state.enemies.forEach(e => e.draw());
     state.lasers.forEach(l => l.draw());
     state.enemyLasers.forEach(el => el.draw());
@@ -311,7 +427,13 @@ function draw() {
     ctx.fillStyle = "#f4d166"; ctx.font = "20px 'Press Start 2P'"; ctx.textAlign = "left";
     ctx.fillText(`LEVEL: ${state.level}`, 40, 55);
     ctx.textAlign = "right"; ctx.fillText(`SCORE: ${state.score}`, canvas.width - 40, 55);
-    if (state.active) { for (let i = 0; i < state.lives; i++) drawHeart(65 + (i * 50), 90, 18); }
+
+    if (state.players.length === 1) {
+        drawPlayerLives(state.players[0], 65, 'left');
+    } else if (state.players.length > 1) {
+        drawPlayerLives(state.players[0], 65, 'left');
+        drawPlayerLives(state.players[1], canvas.width - 65, 'right');
+    }
 }
 
 function startCountdown() {
@@ -329,24 +451,42 @@ function gameLoop() { if (state.active) { update(); draw(); requestAnimationFram
 window.addEventListener('keydown', e => state.keys[e.code] = true);
 window.addEventListener('keyup', e => state.keys[e.code] = false);
 
-
 window.onload = () => {
     if (typeof initGame === 'function') {
-        initGame(); 
+        initGame();
     } else {
         console.error("initGame function is missing!");
     }
 };
 
 function initGame() {
-    state.score = 0; 
-    state.level = 1; 
+    state.score = 0;
+    state.level = 1;
     state.lives = 3;
+    state.active = false;
+    state.countingDown = false;
     state.activeItems = [];
     state.lasers = [];
     state.enemyLasers = [];
-    state.player = new Player(); 
-    
+    state.enemies = [];
+    state.rowsState = [];
+
+    const primaryControls = { left: 'ArrowLeft', right: 'ArrowRight', shoot: ['ArrowUp', 'Space'] };
+    const secondaryControls = { left: 'KeyA', right: 'KeyD', shoot: 'KeyW' };
+    const primaryColor = normalizeShipColor(selectedShipColor);
+    const secondaryColor = getAlternateShipColor(primaryColor);
+
+    state.players = [
+        new Player(1, primaryControls, getPlayerStartPosition(0, 1), primaryColor)
+    ];
+
+    if (state.isMultiplayer) {
+        state.players[0].x = getPlayerStartPosition(0, 2);
+        state.players.push(new Player(2, secondaryControls, getPlayerStartPosition(1, 2), secondaryColor));
+    }
+
+    state.player = state.players[0];
+
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('start') === 'true') {
         startCountdown();
