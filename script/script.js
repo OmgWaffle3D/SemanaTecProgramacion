@@ -33,6 +33,7 @@ function getAlternateShipColor(color) {
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const countdownEl = document.getElementById("countdown");
+const enemy_2p_scale = 0.75;
 
 canvas.width = 1000;
 canvas.height = 750;
@@ -71,6 +72,8 @@ const state = {
     formationDirection: 1,
     formationStepCounter: 0,
     rowsState: [],
+    isMultiplayer: params.get('players') === '2',
+    players: [], // Cambiado de player: null a arreglo
     ytPlayer: null
 };
 
@@ -136,6 +139,7 @@ class Player {
         this.hasDoubleShot = false;
         this.hasShield = false;
     }
+
     update() {
         if (!this.alive) return;
 
@@ -149,6 +153,7 @@ class Player {
             this.cooldown = CONFIG.LASER_COOLDOWN;
         }
     }
+
     shoot() {
         const laserColor = this.color;
         if (this.hasDoubleShot) {
@@ -173,10 +178,13 @@ class Player {
         ctx.shadowBlur = 15;
         ctx.shadowColor = this.color;
         ctx.drawImage(images.player, this.x, this.y, this.width, this.height);
+        
+        // Aplicamos el tinte de color seleccionado
         ctx.globalCompositeOperation = 'source-atop';
-        ctx.globalAlpha = 0.35;
+        ctx.globalAlpha = 0.3;
         ctx.fillStyle = this.color;
         ctx.fillRect(this.x, this.y, this.width, this.height);
+        
         ctx.restore();
     }
 }
@@ -292,17 +300,38 @@ function spawnWave() {
     const config = CONFIG.LEVELS[state.level];
     state.enemies = []; state.rowsState = [];
     state.formationX = 60; state.formationDirection = 1; state.formationStepCounter = 0;
+    state.enemies = [];
+    state.rowsState = [];
+    
+    // Ajuste de dificultad por multijugador
+    const enemyScale = state.isMultiplayer ? enemy_2p_scale : 1;
+    const extraRows = state.isMultiplayer ? 2 : 0;
+    const extraCols = state.isMultiplayer ? 2 : 0;
+
     let enemyPool = [];
-    for (let i = 0; i < config.kirk; i++) enemyPool.push('kirk');
-    for (let i = 0; i < config.trump; i++) enemyPool.push('trump');
-    for (let i = 0; i < config.epstein; i++) enemyPool.push('epstein');
+    // Aumentamos la cantidad de enemigos proporcionalmente
+    const totalEnemiesMult = state.isMultiplayer ? 1.5 : 1;
+    for (let i = 0; i < config.kirk * totalEnemiesMult; i++) enemyPool.push('kirk');
+    for (let i = 0; i < config.trump * totalEnemiesMult; i++) enemyPool.push('trump');
+    for (let i = 0; i < config.epstein * totalEnemiesMult; i++) enemyPool.push('epstein');
     enemyPool.sort(() => Math.random() - 0.5);
-    for (let row = 0; row < config.rows; row++) {
-        const reversedRowIndex = (config.rows - 1) - row;
-        state.rowsState.push({ y: -150 - (row * 150), targetY: 110 + (reversedRowIndex * (CONFIG.SIZES.ENEMY + 25)), isEntering: true });
-        for (let col = 0; col < config.cols; col++) {
+
+    const rows = config.rows + extraRows;
+    const cols = config.cols + extraCols;
+    const enemySize = CONFIG.SIZES.ENEMY * enemyScale;
+
+    for (let row = 0; row < rows; row++) {
+        state.rowsState.push({
+            y: -150 - (row * 100), 
+            targetY: 100 + (row * (enemySize + 15)),
+            isEntering: true
+        });
+        for (let col = 0; col < cols; col++) {
             const type = enemyPool.pop() || 'kirk';
-            state.enemies.push(new Enemy(type, col, row));
+            const enemy = new Enemy(type, col, row);
+            enemy.width = enemySize;  // Aplicamos el nuevo tamaño
+            enemy.height = enemySize;
+            state.enemies.push(enemy);
         }
     }
 }
@@ -340,46 +369,65 @@ function updateRows() {
         }
     }
     state.enemies.forEach(enemy => {
-        enemy.update(state.formationX, state.rowsState[enemy.gridY].y);
-        state.players.forEach(player => {
-            if (player.alive && checkCollision(enemy, player)) handlePlayerHit(player);
+        const row = state.rowsState[enemy.gridY];
+        enemy.update(state.formationX, row.y);
+        state.players.forEach(p => {
+            if (checkCollision(enemy, p)) handlePlayerHit();
         });
-        if (enemy.y + enemy.height > canvas.height) {
-            const fallbackPlayer = getClosestAlivePlayer(enemy);
-            if (fallbackPlayer) handlePlayerHit(fallbackPlayer);
-            spawnWave();
-        }
+        if (enemy.y + enemy.height > canvas.height) { handlePlayerHit(); spawnWave(); }
     });
+}
+
+// --- LÓGICA GENERAL ---
+
+function initGame() {
+    state.score = 0; state.level = 1; state.lives = 5; // Más vidas para coop
+    state.lasers = []; state.enemyLasers = []; state.enemies = [];
+    
+    // Definir controles
+    const p1Controls = { left: 'ArrowLeft', right: 'ArrowRight', shoot: 'ArrowUp' };
+    const p2Controls = { left: 'KeyA', right: 'KeyD', shoot: 'KeyW' };
+
+    state.players = [new Player(1, p1Controls, canvas.width / 2 + 50)];
+    
+    if (state.isMultiplayer) {
+        state.players[0].x = canvas.width / 2 + 100; // Mover P1 a la derecha
+        state.players.push(new Player(2, p2Controls, canvas.width / 2 - 200)); // Añadir P2
+    }
+    startCountdown();
 }
 
 function update() {
     if (!state.active) return;
-    state.players.forEach(player => player.update());
+    
+    state.players.forEach(p => p.update());
     updateRows();
-    updateItems();
-    for (let i = state.lasers.length - 1; i >= 0; i--) {
-        const l = state.lasers[i]; l.update();
-        if (l.y < -50) { state.lasers.splice(i, 1); continue; }
-        let hit = false;
-        for (let j = state.enemies.length - 1; j >= 0; j--) {
-            const e = state.enemies[j];
-            if (checkCollision(l, e)) {
-                dropItem(e.x, e.y); e.hp--;
-                if (e.hp <= 0) { state.enemies.splice(j, 1); state.score += (e.type === 'kirk' ? 10 : (e.type === 'trump' ? 20 : 30)); }
-                hit = true; break;
+
+    state.lasers.forEach((laser, lIdx) => {
+        laser.update();
+        if (laser.y < -30) state.lasers.splice(lIdx, 1);
+        
+        state.enemies.forEach((enemy, eIdx) => {
+            if (checkCollision(laser, enemy)) {
+                state.lasers.splice(lIdx, 1);
+                enemy.hp--;
+                if (enemy.hp <= 0) {
+                    state.enemies.splice(eIdx, 1);
+                    state.score += (enemy.type === 'kirk' ? 10 : 20);
+                }
             }
-        }
-        if (hit) state.lasers.splice(i, 1);
-    }
-    for (let i = state.enemyLasers.length - 1; i >= 0; i--) {
-        const el = state.enemyLasers[i]; el.update();
-        if (el.y > canvas.height + 50) { state.enemyLasers.splice(i, 1); continue; }
-        const hitPlayer = state.players.find(player => player.alive && checkCollision(el, player));
-        if (hitPlayer) {
-            state.enemyLasers.splice(i, 1);
-            handlePlayerHit(hitPlayer);
-        }
-    }
+        });
+    });
+
+    state.enemyLasers.forEach((laser, index) => {
+        laser.update();
+        state.players.forEach(player => {
+            if (checkCollision(laser, player)) {
+                state.enemyLasers.splice(index, 1);
+                handlePlayerHit();
+            }
+        }); 
+    }); 
 }
 
 function checkCollision(a, b) {
@@ -419,8 +467,14 @@ function drawPlayerLives(player, x, align = 'left') {
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    state.players.forEach(player => player.draw());
-    state.enemies.forEach(e => e.draw());
+    
+    // CORRECCIÓN: Dibujar a todos los jugadores del arreglo
+    state.players.forEach(p => p.draw());
+    
+    if (state.active || state.countingDown) {
+        state.enemies.forEach(e => e.draw());
+    }
+    
     state.lasers.forEach(l => l.draw());
     state.enemyLasers.forEach(el => el.draw());
     drawItems();
@@ -435,7 +489,6 @@ function draw() {
         drawPlayerLives(state.players[1], canvas.width - 65, 'right');
     }
 }
-
 function startCountdown() {
     state.countingDown = true; countdownEl.classList.remove('hidden');
     let count = 3;

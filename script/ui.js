@@ -105,3 +105,39 @@ function onYouTubeIframeAPIReady() {
         events: { 'onReady': (e) => { e.target.setVolume(40); e.target.playVideo(); } }
     });
 }
+const MAX_HIGH_SCORES = 5;
+
+function saveAndDisplayHighScore(currentScore) {
+    const highScores = JSON.parse(localStorage.getItem('spaceShooterScores')) || [];
+
+    const newScoreObj = {
+        score: currentScore,
+        name: 'Player' 
+    };
+    highScores.push(newScoreObj);
+
+    highScores.sort((a, b) => b.score - a.score);
+
+    highScores.splice(MAX_HIGH_SCORES);
+
+    localStorage.setItem('spaceShooterScores', JSON.stringify(highScores));
+
+    updateHighScoreUI(highScores);
+}
+
+function updateHighScoreUI(highScores) {
+    const listElement = document.getElementById('highScoresList');
+
+    listElement.innerHTML = highScores
+        .map(scoreObj => {
+            return `<li class="score-item">
+                        <span>${scoreObj.name}</span>
+                        <span>${scoreObj.score}</span>
+                    </li>`;
+        })
+        .join('');
+}
+
+let puntajeFinalDelJugador = 1500; 
+document.getElementById('finalScoreNum').innerText = puntajeFinalDelJugador;
+saveAndDisplayHighScore(puntajeFinalDelJugador);
