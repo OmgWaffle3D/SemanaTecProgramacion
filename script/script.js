@@ -1,14 +1,35 @@
 // --- REDIRECCIÓN INICIAL ---
 const params = new URLSearchParams(window.location.search);
-const SHIP_COLORS = { aqua: '#3cf4ff', magenta: '#ff2df4', gold: '#f4d166' };
-const requestedShipColor = params.get('shipColor') || 'aqua';
-const shipTint = SHIP_COLORS[requestedShipColor] || SHIP_COLORS.aqua;
-
 if (params.get('start') !== 'true') {
     window.location.href = 'pages/inicio.html';
 }
 
-// --- CONFIGURACIÓN ESCALADA (1000x750) ---
+const isMultiplayer = params.get('players') === '2';
+const selectedShipColor = params.get('shipColor') || 'aqua';
+
+const SHIP_TINTS = {
+    aqua: '#3cf4ff',
+    magenta: '#ff2df4',
+    gold: '#f4d166'
+};
+
+const SHIP_COLOR_ORDER = ['aqua', 'magenta', 'gold'];
+
+function normalizeShipColor(color) {
+    return SHIP_TINTS[color] ? color : 'aqua';
+}
+
+function getShipTint(color) {
+    return SHIP_TINTS[normalizeShipColor(color)];
+}
+
+function getAlternateShipColor(color) {
+    const normalized = normalizeShipColor(color);
+    const currentIndex = SHIP_COLOR_ORDER.indexOf(normalized);
+    return SHIP_COLOR_ORDER[(currentIndex + 2) % SHIP_COLOR_ORDER.length];
+}
+
+// --- CONFIGURACIÓN (1000x750) ---
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const countdownEl = document.getElementById("countdown");
@@ -28,7 +49,9 @@ const CONFIG = {
         1: { kirk: 17, trump: 5, epstein: 2, rows: 4, cols: 6, music: '7R5ncn93KT4' },
         2: { kirk: 5, trump: 14, epstein: 5, rows: 4, cols: 6, music: 'SQk6UTdbRO0' },
         3: { kirk: 7, trump: 7, epstein: 10, rows: 4, cols: 6, music: 'nFSs4Q7MyaY' }
-    }
+    },
+    ITEM_DROP_CHANCE: 0.15,
+    ITEM_SPEED: 3
 };
 
 const state = {
@@ -38,9 +61,13 @@ const state = {
     level: 1,
     lives: 3,
     keys: {},
+    player: null,
+    players: [],
+    isMultiplayer,
     enemies: [],
     lasers: [],
     enemyLasers: [],
+    activeItems: [],
     formationX: 60,
     formationDirection: 1,
     formationStepCounter: 0,
@@ -52,86 +79,104 @@ const state = {
 
 // --- CARGA DE ACTIVOS ---
 const images = {
-    player: new Image(), kirk: new Image(), trump: new Image(), epstein: new Image(), heart: new Image()
+    player: new Image(), kirk: new Image(), trump: new Image(), epstein: new Image(), heart: new Image(),
+    itemDouble: new Image(), itemShield: new Image(), itemRecovery: new Image()
 };
 images.player.src = "assets/images/1player.png";
 images.kirk.src = "assets/images/charlieKirk1.png";
 images.trump.src = "assets/images/trump2.png";
 images.epstein.src = "assets/images/epstein3.png";
-images.heart.src = "assets/heartlive.png";
+images.heart.src = "assets/images/recovery.png";
+images.itemDouble.src = "assets/images/double_shot.png";
+images.itemShield.src = "assets/images/shield.png";
+images.itemRecovery.src = "assets/images/recovery.png";
 
-// --- YOUTUBE API INTEGRATION ---
+// --- YOUTUBE API ---
 function onYouTubeIframeAPIReady() {
     state.ytPlayer = new YT.Player('ytplayer', {
         height: '0', width: '0',
         videoId: CONFIG.LEVELS[1].music,
         playerVars: { 'autoplay': 1, 'loop': 1, 'playlist': CONFIG.LEVELS[1].music, 'controls': 0 },
-        events: {
-            'onReady': (e) => {
-                e.target.setVolume(40);
-                e.target.playVideo();
-            }
-        }
+        events: { 'onReady': (e) => { e.target.setVolume(30); e.target.playVideo(); } }
     });
-}
-
-function updateLevelMusic() {
-    if (state.ytPlayer && state.ytPlayer.loadVideoById) {
-        const nextMusicId = CONFIG.LEVELS[state.level].music;
-        console.log("Cambiando música a nivel:", state.level, "ID:", nextMusicId);
-        
-        // Usamos cue + play para asegurar que el buffer se llene
-        state.ytPlayer.cueVideoById({
-            videoId: nextMusicId,
-            startSeconds: 0,
-            suggestedQuality: 'small'
-        });
-        
-        setTimeout(() => {
-            state.ytPlayer.playVideo();
-        }, 500); // Pequeño retraso para asegurar la carga
-    }
 }
 
 // --- CLASES ---
 
+function isControlPressed(control) {
+    if (Array.isArray(control)) {
+        return control.some(keyCode => state.keys[keyCode]);
+    }
+    return !!state.keys[control];
+}
+
+function getPlayerStartPosition(index, totalPlayers) {
+    if (totalPlayers <= 1) {
+        return canvas.width / 2 - CONFIG.SIZES.PLAYER / 2;
+    }
+
+    const positions = [
+        canvas.width / 2 - CONFIG.SIZES.PLAYER - 28,
+        canvas.width / 2 + 28
+    ];
+
+    return positions[index] ?? (canvas.width / 2 - CONFIG.SIZES.PLAYER / 2);
+}
+
 class Player {
-    constructor(id, controls, xPos) {
+    constructor(id, controls, xPos, shipColor) {
         this.id = id;
+        this.controls = controls;
         this.width = CONFIG.SIZES.PLAYER;
         this.height = CONFIG.SIZES.PLAYER;
         this.x = xPos;
         this.y = canvas.height - this.height - 30;
         this.cooldown = 0;
-        this.controls = controls; 
-        this.color = shipTint;
+        this.color = getShipTint(shipColor);
+        this.lives = 3;
+        this.maxLives = 5;
+        this.alive = true;
+        this.hasDoubleShot = false;
+        this.hasShield = false;
     }
 
     update() {
-        if (state.keys[this.controls.left]) this.x -= CONFIG.PLAYER_SPEED;
-        if (state.keys[this.controls.right]) this.x += CONFIG.PLAYER_SPEED;
-        
+        if (!this.alive) return;
+
+        if (isControlPressed(this.controls.left)) this.x -= CONFIG.PLAYER_SPEED;
+        if (isControlPressed(this.controls.right)) this.x += CONFIG.PLAYER_SPEED;
         this.x = Math.max(0, Math.min(canvas.width - this.width, this.x));
         if (this.cooldown > 0) this.cooldown--;
 
-        if (state.keys[this.controls.shoot] && this.cooldown === 0) {
+        if (isControlPressed(this.controls.shoot) && this.cooldown === 0) {
             this.shoot();
             this.cooldown = CONFIG.LASER_COOLDOWN;
         }
     }
 
     shoot() {
-        // Color basado en el ID del jugador
-        const laserColor = this.id === 1 ? '#3cf4ff' : '#ffeb3b';
-        state.lasers.push(new Laser(this.x + this.width / 2 - 2, this.y, -CONFIG.LASER_SPEED, laserColor));
+        const laserColor = this.color;
+        if (this.hasDoubleShot) {
+            state.lasers.push(new Laser(this.x + 20, this.y, -CONFIG.LASER_SPEED, laserColor));
+            state.lasers.push(new Laser(this.x + this.width - 20, this.y, -CONFIG.LASER_SPEED, laserColor));
+        } else {
+            state.lasers.push(new Laser(this.x + this.width / 2 - 2, this.y, -CONFIG.LASER_SPEED, laserColor));
+        }
     }
+    draw() {
+        if (!this.alive) return;
 
-    draw() { 
+        if (this.hasShield) {
+            ctx.strokeStyle = "#00d2ff";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(this.x + this.width/2, this.y + this.height/2, 65, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
         ctx.save();
         ctx.shadowBlur = 15;
-        ctx.shadowColor = this.id === 1 ? "#3cf4ff" : "#ffeb3b";
-        
-        // Dibujamos la imagen base
+        ctx.shadowColor = this.color;
         ctx.drawImage(images.player, this.x, this.y, this.width, this.height);
         
         // Aplicamos el tinte de color seleccionado
@@ -166,11 +211,8 @@ class Enemy {
             }
         }
     }
-    draw() { 
-        ctx.shadowBlur = 12;
-        ctx.shadowColor = (this.type === 'kirk' ? "#ff9500" : (this.type === 'trump' ? "#ff2d55" : "#ff00ff"));
+    draw() {
         ctx.drawImage(this.img, this.x, this.y, this.width, this.height);
-        ctx.shadowBlur = 0;
     }
 }
 
@@ -179,16 +221,85 @@ class Laser {
     update() { this.y += this.dy; }
     draw() {
         ctx.fillStyle = this.color;
-        ctx.shadowBlur = 10; ctx.shadowColor = this.color;
         ctx.fillRect(this.x, this.y, this.width, this.height);
-        ctx.shadowBlur = 0;
     }
 }
 
-// --- LÓGICA DE MOVIMIENTO ARCADE ---
+// --- ITEM LOGIC (OPTIMIZED) ---
+function dropItem(x, y) {
+    if (Math.random() <= CONFIG.ITEM_DROP_CHANCE) {
+        const types = ['DOUBLE_SHOT', 'SHIELD', 'RECOVERY'];
+        const type = types[Math.floor(Math.random() * types.length)];
+        state.activeItems.push({ x: x, y: y, type: type, width: 45, height: 45 });
+    }
+}
 
+function updateItems() {
+    for (let i = state.activeItems.length - 1; i >= 0; i--) {
+        const item = state.activeItems[i];
+        item.y += CONFIG.ITEM_SPEED;
+
+        const playerHit = state.players.find(player => player.alive && checkCollision(item, player));
+        if (playerHit) {
+            applyPowerUp(item.type, playerHit);
+            state.activeItems.splice(i, 1);
+            continue;
+        }
+        if (item.y > canvas.height + 50) state.activeItems.splice(i, 1);
+    }
+}
+
+function applyPowerUp(type, player) {
+    if (type === 'DOUBLE_SHOT') {
+        player.hasDoubleShot = true;
+        setTimeout(() => { player.hasDoubleShot = false; }, 10000);
+    } else if (type === 'SHIELD') {
+        player.hasShield = true;
+    } else if (type === 'RECOVERY') {
+        player.lives = Math.min(player.lives + 1, player.maxLives);
+    }
+}
+
+function drawItems() {
+    state.activeItems.forEach(item => {
+        let img = images.itemDouble;
+        if (item.type === 'SHIELD') img = images.itemShield;
+        if (item.type === 'RECOVERY') img = images.itemRecovery;
+
+        if (img && img.complete && img.naturalWidth !== 0) {
+            ctx.drawImage(img, item.x, item.y, item.width, item.height);
+        } else {
+            ctx.save();
+            ctx.fillStyle = (item.type === 'SHIELD') ? "#00FFFF" :
+                            (item.type === 'RECOVERY') ? "#00FF00" : "#FF00FF";
+            ctx.beginPath();
+            ctx.arc(item.x + item.width / 2, item.y + item.height / 2, 20, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+    });
+}
+
+function drawHeart(x, y, size) {
+    ctx.fillStyle = "#ff2d55";
+    ctx.beginPath();
+    ctx.arc(x - size * 0.25, y - size * 0.25, size * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x + size * 0.25, y - size * 0.25, size * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x - size * 0.4, y - size * 0.1);
+    ctx.lineTo(x + size * 0.4, y - size * 0.1);
+    ctx.lineTo(x, y + size * 0.4);
+    ctx.fill();
+}
+
+// --- CORE GAME LOGIC (OPTIMIZED) ---
 function spawnWave() {
     const config = CONFIG.LEVELS[state.level];
+    state.enemies = []; state.rowsState = [];
+    state.formationX = 60; state.formationDirection = 1; state.formationStepCounter = 0;
     state.enemies = [];
     state.rowsState = [];
     
@@ -225,38 +336,36 @@ function spawnWave() {
     }
 }
 
+function getClosestAlivePlayer(enemy) {
+    const alivePlayers = state.players.filter(player => player.alive);
+    if (alivePlayers.length === 0) return null;
+
+    const enemyCenterX = enemy.x + enemy.width / 2;
+    return alivePlayers.reduce((closest, player) => {
+        const playerCenterX = player.x + player.width / 2;
+        const closestDistance = Math.abs((closest.x + closest.width / 2) - enemyCenterX);
+        const playerDistance = Math.abs(playerCenterX - enemyCenterX);
+        return playerDistance < closestDistance ? player : closest;
+    });
+}
+
 function updateRows() {
     if (state.enemies.length === 0) {
-        if (state.level < 3) { 
-            state.level++; 
-            updateLevelMusic(); // CAMBIO DE MÚSICA
-            spawnWave(); 
-        } 
+        if (state.level < 3) { state.level++; spawnWave(); }
         else { handleGameOver(true); }
         return;
     }
     const allEntered = state.rowsState.every(row => !row.isEntering);
-    state.rowsState.forEach((row) => {
-        if (row.isEntering) {
-            if (row.y < row.targetY) row.y += 4;
-            else row.isEntering = false;
-        }
-    });
+    state.rowsState.forEach(row => { if (row.isEntering) { if (row.y < row.targetY) row.y += 4; else row.isEntering = false; } });
     if (allEntered) {
         state.formationStepCounter++;
         if (state.formationStepCounter >= CONFIG.STEP_INTERVAL) {
             state.formationStepCounter = 0;
             let minX = Math.min(...state.enemies.map(e => e.x));
             let maxX = Math.max(...state.enemies.map(e => e.x + e.width));
-            let hitEdge = false;
-            if (state.formationDirection === 1 && maxX + CONFIG.STEP_SIZE > canvas.width - 20) hitEdge = true;
-            if (state.formationDirection === -1 && minX - CONFIG.STEP_SIZE < 20) hitEdge = true;
-            if (hitEdge) {
-                state.rowsState.forEach(row => row.y += 35);
-                state.formationDirection *= -1;
-            } else {
-                state.formationX += CONFIG.STEP_SIZE * state.formationDirection;
-            }
+            if ((state.formationDirection === 1 && maxX + CONFIG.STEP_SIZE > canvas.width - 20) || (state.formationDirection === -1 && minX - CONFIG.STEP_SIZE < 20)) {
+                state.rowsState.forEach(row => row.y += 35); state.formationDirection *= -1;
+            } else { state.formationX += CONFIG.STEP_SIZE * state.formationDirection; }
         }
     }
     state.enemies.forEach(enemy => {
@@ -322,21 +431,38 @@ function update() {
 }
 
 function checkCollision(a, b) {
-    const p = 5; 
-    return a.x + p < b.x + b.width - p && a.x + (a.width||5) - p > b.x + p &&
-           a.y + p < b.y + b.height - p && a.y + (a.height||25) - p > b.y + p;
+    if (!a || !b) return false;
+    const p = 5; const aW = a.width || 5; const aH = a.height || 25;
+    return a.x + p < b.x + b.width - p && a.x + aW - p > b.x + p && a.y + p < b.y + b.height - p && a.y + aH - p > b.y + p;
 }
 
-function handlePlayerHit() {
-    state.lives--;
-    if (state.lives <= 0) handleGameOver(false);
+function handlePlayerHit(player) {
+    if (!player || !player.alive) return;
+
+    if (player.hasShield) {
+        player.hasShield = false;
+        return;
+    }
+
+    player.lives--;
+    if (player.lives <= 0) {
+        player.lives = 0;
+        player.alive = false;
+    }
+
+    if (state.players.every(entry => !entry.alive)) {
+        handleGameOver(false);
+    }
 }
 
-function handleGameOver(won) {
-    state.active = false;
-    localStorage.setItem('finalScore', state.score);
-    localStorage.setItem('gameResult', won ? 'WIN' : 'LOSS');
-    window.location.href = 'pages/final.html';
+function handleGameOver(won) { state.active = false; localStorage.setItem('finalScore', state.score); localStorage.setItem('gameResult', won ? 'WIN' : 'LOSS'); window.location.href = 'pages/final.html'; }
+
+function drawPlayerLives(player, x, align = 'left') {
+    const liveCount = Math.max(0, player.lives);
+    for (let i = 0; i < liveCount; i++) {
+        const offset = align === 'right' ? -(i * 50) : (i * 50);
+        drawHeart(x + offset, 90, 18);
+    }
 }
 
 function draw() {
@@ -350,46 +476,72 @@ function draw() {
     }
     
     state.lasers.forEach(l => l.draw());
-    state.enemyLasers.forEach(l => l.draw());
-    
-    ctx.fillStyle = "#f4d166"; 
-    ctx.font = "20px 'Press Start 2P'";
-    ctx.textAlign = "left";
+    state.enemyLasers.forEach(el => el.draw());
+    drawItems();
+    ctx.fillStyle = "#f4d166"; ctx.font = "20px 'Press Start 2P'"; ctx.textAlign = "left";
     ctx.fillText(`LEVEL: ${state.level}`, 40, 55);
-    
-    ctx.textAlign = "right";
-    ctx.fillText(`SCORE: ${state.score}`, canvas.width - 40, 55);
-    ctx.textAlign = "left";
-    
-    if (state.active) {
-        const heartSize = 38;
-        for (let i = 0; i < state.lives; i++) {
-            ctx.drawImage(images.heart, 40 + (i * 50), 75, heartSize, heartSize);
-        }
+    ctx.textAlign = "right"; ctx.fillText(`SCORE: ${state.score}`, canvas.width - 40, 55);
+
+    if (state.players.length === 1) {
+        drawPlayerLives(state.players[0], 65, 'left');
+    } else if (state.players.length > 1) {
+        drawPlayerLives(state.players[0], 65, 'left');
+        drawPlayerLives(state.players[1], canvas.width - 65, 'right');
     }
 }
 function startCountdown() {
-    state.countingDown = true;
-    countdownEl.classList.remove('hidden');
+    state.countingDown = true; countdownEl.classList.remove('hidden');
     let count = 3;
     const timer = setInterval(() => {
         if (count > 0) countdownEl.textContent = count;
         else if (count === 0) countdownEl.textContent = "GO!";
-        else {
-            clearInterval(timer);
-            countdownEl.classList.add('hidden');
-            state.countingDown = false; state.active = true;
-            spawnWave(); gameLoop(); return;
-        }
+        else { clearInterval(timer); countdownEl.classList.add('hidden'); state.countingDown = false; state.active = true; spawnWave(); gameLoop(); return; }
         count--;
     }, 1000);
 }
 
-function renderCountdownFrame() { if (state.countingDown) { draw(); requestAnimationFrame(renderCountdownFrame); } }
 function gameLoop() { if (state.active) { update(); draw(); requestAnimationFrame(gameLoop); } }
-
 window.addEventListener('keydown', e => state.keys[e.code] = true);
 window.addEventListener('keyup', e => state.keys[e.code] = false);
 
-if (params.get('start') === 'true') initGame();
-draw();
+window.onload = () => {
+    if (typeof initGame === 'function') {
+        initGame();
+    } else {
+        console.error("initGame function is missing!");
+    }
+};
+
+function initGame() {
+    state.score = 0;
+    state.level = 1;
+    state.lives = 3;
+    state.active = false;
+    state.countingDown = false;
+    state.activeItems = [];
+    state.lasers = [];
+    state.enemyLasers = [];
+    state.enemies = [];
+    state.rowsState = [];
+
+    const primaryControls = { left: 'ArrowLeft', right: 'ArrowRight', shoot: ['ArrowUp', 'Space'] };
+    const secondaryControls = { left: 'KeyA', right: 'KeyD', shoot: 'KeyW' };
+    const primaryColor = normalizeShipColor(selectedShipColor);
+    const secondaryColor = getAlternateShipColor(primaryColor);
+
+    state.players = [
+        new Player(1, primaryControls, getPlayerStartPosition(0, 1), primaryColor)
+    ];
+
+    if (state.isMultiplayer) {
+        state.players[0].x = getPlayerStartPosition(0, 2);
+        state.players.push(new Player(2, secondaryControls, getPlayerStartPosition(1, 2), secondaryColor));
+    }
+
+    state.player = state.players[0];
+
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('start') === 'true') {
+        startCountdown();
+    }
+}
