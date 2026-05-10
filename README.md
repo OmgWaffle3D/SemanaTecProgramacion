@@ -2,12 +2,14 @@
 
 ## 📋 Descripción del Proyecto
 
-**Space Shooter** es un juego arcade interactivo de un jugador construido con **HTML5, CSS y JavaScript vanilla**. El juego cuenta con mecánicas de puntuación, dificultad progresiva y una interfaz moderna con efectos glassmorphism.
+**Space Shooter** es un juego arcade interactivo construido con **HTML5, CSS y JavaScript vanilla**. El juego cuenta con mecánicas de puntuación, dificultad progresiva, modo multijugador (1-2 jugadores), sistema de items especiales y una interfaz retro futurista con efectos visuales modernos.
 
 ### Objetivo del Juego
 - 🎮 Destruir enemigos y acumular puntos
 - 📈 La dificultad aumenta conforme subes de puntuación
-- 🎯 Evitar que Diddy te atrape para mantener vivo el juego
+- 👥 Juega solo o desafía a un amigo en modo 2 jugadores
+- 🎁 Recoge items especiales (disparo doble, escudo, recuperación de vida)
+- 🏆 Compite por los mejores puntajes en el sistema de highscores
 
 ---
 
@@ -20,15 +22,17 @@ SemanaTecProgramacion/
 ├── 📄 index.html                  # Página principal del JUEGO ⭐
 │
 ├── 📁 pages/
-│   ├── inicio.html               # Página de INICIO (controles e instrucciones)
-│   ├── final.html                # Página de GAME OVER (resultados)
+│   ├── inicio.html               # Página de INICIO (selección de modo y color)
+│   ├── final.html                # Página de GAME OVER (resultados y highscores)
 │   └── index.html                # (Archivo antiguo - NO USAR)
 │
 ├── 📁 styles/
-│   └── style.css                 # Estilos CSS del proyecto (colores, layout, glassmorphism)
+│   └── retro.css                 # Estilos CSS (tema retro futurista)
 │
 └── 📁 script/
-    └── script.js                 # Lógica del juego (física, colisiones, puntuación)
+    ├── script.js                 # Lógica principal del juego
+    ├── items.js                  # Sistema de items especiales
+    └── ui.js                     # Navegación y control de UI
 ```
 
 ---
@@ -43,80 +47,92 @@ pages/inicio.html → index.html (juego) → pages/final.html
 ### 🎮 **Archivos HTML**
 
 #### `pages/inicio.html` (Página de Inicio)
-- **Propósito:** Pantalla de bienvenida y explicación de controles
+- **Propósito:** Pantalla de bienvenida con opciones de juego
 - **Contiene:**
   - Título del juego
-  - Descripción del objetivo
-  - Controles para Jugador 1 y Jugador 2
-  - Botón "COMENZAR JUEGO" → redirige a `index.html?start=true`
-- **Path de estilos:** `../styles/style.css`
+  - **Selector de modo:** 1 PLAYER o 2 PLAYERS
+  - **Selector de color de nave:** Aqua, Magenta o Gold
+  - **Botón "CÓMO JUGAR":** Muestra instrucciones y controles
+  - Botón "COMENZAR JUEGO" → redirige a `index.html?start=true&players=X&shipColor=Y`
+- **Path de estilos:** `../styles/retro.css`
 
 #### `index.html` (Juego Principal) ⭐
 - **Propósito:** Interfaz principal del juego
 - **Contiene:**
-  - Header con título y contador de puntos
+  - Scoreboards (1 o 2 jugadores según el modo)
   - Canvas (`<canvas>`) para renderizar el juego
-  - Overlay de Game Over
-- **Path de estilos:** `styles/style.css`
-- **Path de script:** `script/script.js`
-- **Auto-inicio:** Si viene con parámetro `?start=true`, inicia automáticamente
+  - Contador de regresiva (countdown) antes de comenzar
+  - Reproductor de YouTube oculto (audio de fondo)
+- **Path de estilos:** `styles/retro.css`
+- **Scripts:** `script/script.js`, `script/items.js`, `script/ui.js`
+- **Parámetros URL:** `?start=true&players=X&shipColor=Y`
 
 #### `pages/final.html` (Pantalla de Game Over)
-- **Propósito:** Mostrar resultados finales
+- **Propósito:** Mostrar resultados finales y highscores
 - **Contiene:**
-  - Mensaje "¡GAME OVER!"
-  - Puntuación final conseguida
+  - Mensaje de "¡VICTORIA!" o "¡GAME OVER!"
+  - **Modo 1 jugador:** Puntuación final
+  - **Modo 2 jugadores:** Puntuaciones de ambos y ganador
+  - **Sistema de Highscores:** Top 10 de mejores puntajes
   - Botón "VOLVER A JUGAR" → regresa a `pages/inicio.html`
-- **Obtiene puntuación de:** `localStorage.finalScore` o parámetro URL
-- **Path de estilos:** `../styles/style.css`
+- **Obtiene datos de:** `localStorage`
+- **Path de estilos:** `../styles/retro.css`
 
 ---
 
 ### 🎨 **Archivo CSS**
 
-#### `styles/style.css`
+#### `styles/retro.css`
 - **Propósito:** Define todos los estilos visuales del proyecto
+- **Tema:** Retro futurista (arcade vintage con colores neon)
 - **Contiene:**
   - **Variables CSS:**
-    - Colores: `--bg-primary`, `--accent-color`, `--ball-color`
-    - Efectos: `--glass-bg`, `--glass-border`
-    - Tipografía: `--text-primary`, `--text-secondary`
+    - Colores neon: cyan, magenta, gold
+    - Fuentes retro: "Press Start 2P" para efecto arcade
   - **Componentes:**
-    - `.game-container` - Contenedor principal con glassmorphism
-    - `.overlay` - Pantallas superpuestas (inicio, game over)
-    - `.btn-primary` - Botón principal
-    - `.score-badge` - Mostrador de puntuación
-    - Canvas styling - Efectos visuales del juego
+    - `.retro-body` - Estilos base del cuerpo
+    - `.game-container` - Contenedor principal del juego
+    - `.scoreboard` - Mostrador de puntuación
+    - `.score-item` - Items en el ranking de highscores
+    - Elementos interactivos con efectos retro
   - **Características visuales:**
-    - Gradientes de fondo con efectos blur
-    - Efecto glassmorphism (cristal)
-    - Animaciones suave en botones
-    - Responsive layout con flexbox
+    - Fuente pixelada estilo arcade
+    - Efectos de sombra/glow neon
+    - Colores vibrantes (cyan #3cf4ff, magenta #ff2df4, gold #f4d166)
+    - Animaciones suaves en botones
+    - Responsive layout
 
 ---
 
-### ⚙️ **Archivo JavaScript**
+### ⚙️ **Archivos JavaScript**
 
-#### `script/script.js`
-- **Propósito:** Contiene toda la lógica del juego
+#### `script/script.js` (Lógica Principal del Juego)
+- **Propósito:** Contiene la lógica central del juego
 - **Funciones principales:**
-  - **Navegación:**
-    - `irAFinal(score)` - Navega a `pages/final.html` guardando puntuación
-    - `irAInicio()` - Vuelve a `pages/inicio.html`
-  - **Lógica del juego:**
-    - `initGame()` - Inicializa el juego
-    - `update()` - Actualiza posiciones y detecta colisiones
-    - `draw()` - Dibuja elementos en el canvas
-    - `gameLoop()` - Loop de animación (requestAnimationFrame)
-  - **Gestión de eventos:**
-    - Movimiento del mouse (catcher)
-    - Click en botones (inicio, reinicio)
-    - Auto-inicio si viene de `pages/inicio.html`
-  - **Variables de estado:**
-    - `state` - Controla si el juego está activo y puntuación
-    - `ball` - Posición, velocidad y radio de la pelota
-    - `catcher` - Posición y tamaño del atrapador
-    - `CONFIG` - Configuración (velocidad, colores, etc.)
+  - **Inicialización:** `initGame()` - Configura el juego según parámetros
+  - **Game Loop:** `update()` y `draw()` - Actualiza posiciones y renderiza
+  - **Física:** Movimiento de enemigos, colisiones, disparo
+  - **Gestión de eventos:** Teclado y mouse para controlar el jugador
+  - **Estado:** Variables globales para jugadores, enemigos, puntuación
+
+#### `script/items.js` (Sistema de Items)
+- **Propósito:** Gestiona items especiales que caen tras destruir enemigos
+- **Items disponibles:**
+  - **DOUBLE_SHOT** 🟣 - Disparo doble por 10 segundos
+  - **SHIELD** 🟦 - Escudo que protege de 1 impacto
+  - **RECOVERY** 🟩 - Recupera 1 vida (máximo 5)
+- **Funciones:**
+  - `dropItem(x, y)` - 15% de probabilidad de soltar un item
+  - `collectItem(item)` - Aplica el efecto del item recolectado
+
+#### `script/ui.js` (Navegación e Interfaz)
+- **Propósito:** Gestiona la navegación y los modales de UI
+- **Características:**
+  - **Página de inicio:** Selector de modo (1/2 jugadores) y color de nave
+  - **Modales:** "Cómo jugar" y "Seleccionar color"
+  - **Página final:** Muestra resultado, puntuaciones y highscores
+  - **YouTube API:** Reproduce música de fondo automáticamente
+  - **LocalStorage:** Guarda highscores y resultados
 
 ---
 
@@ -125,40 +141,50 @@ pages/inicio.html → index.html (juego) → pages/final.html
 ```
 1. Usuario accede a pages/inicio.html
    ↓
-2. Lee controles e instrucciones
+2. Selecciona modo de juego (1 o 2 jugadores)
    ↓
-3. Hace click en "COMENZAR JUEGO"
+3. Elige color de nave (aqua, magenta, gold)
    ↓
-4. Se redirige a index.html?start=true
+4. Lee instrucciones en modal "Cómo jugar"
    ↓
-5. Script.js detecta parámetro ?start=true
+5. Hace click en "COMENZAR JUEGO"
    ↓
-6. Juego inicia automáticamente
+6. Se redirige a index.html?start=true&players=X&shipColor=Y
    ↓
-7. Usuario juega y acumula puntos
+7. Juego inicia con countdown de 3 segundos
    ↓
-8. Pelota cae (game over)
+8. Jugador controla nave y destruye enemigos
    ↓
-9. Script.js llama a irAFinal(score)
+9. Recolecta items especiales que aumentan su poder
    ↓
-10. Se redirige a pages/final.html con la puntuación
+10. Puntuación aumenta, dificultad se incrementa
     ↓
-11. Usuario ve resultados y click en "VOLVER A JUGAR"
+11. Juego termina (victoria/derrota)
     ↓
-12. Regresa a pages/inicio.html (vuelta al paso 1)
+12. Se redirige a pages/final.html
+    ↓
+13. Se muestran resultados y ranking de highscores
+    ↓
+14. Usuario hace click en "VOLVER A JUGAR"
+    ↓
+15. Regresa a pages/inicio.html (vuelta al paso 1)
 ```
 
 ---
 
 ## 🎨 Diseño Visual
 
-- **Tema:** Oscuro futurista (Dark mode)
+- **Tema:** Arcade retro futurista (Vintage + Neon)
 - **Colores principales:**
-  - Fondo: `#0a0a0c` (Gris muy oscuro)
-  - Acento: `#00f2ff` (Cyan brillante)
-  - Pelota: `#ff2d55` (Rojo/Rosa)
-- **Efecto visual:** Glassmorphism (cristal translúcido con blur)
-- **Tipografía:** Google Font "Outfit" (moderna y geométrica)
+  - Fondo: `#0a0a0c` o gradientes oscuros (tema dark)
+  - Primario: `#3cf4ff` (Cyan neon)
+  - Secundario: `#ffeb3b` (Gold)
+  - Acento: `#ff2df4` (Magenta)
+- **Tipografía:** "Press Start 2P" (fuente pixel arcade)
+- **Efectos visuales:** 
+  - Glow/Shadow neon en elementos principales
+  - Animaciones retro
+  - Contraste alto para efecto arcade clásico
 
 ---
 
@@ -179,8 +205,24 @@ pages/inicio.html → index.html (juego) → pages/final.html
    # Luego abre: http://localhost:8000/pages/inicio.html
    ```
 
-3. **Sin servidor:**
-   - Solo abre `pages/inicio.html` directamente en el navegador (funciona, pero sin algunos features)
+3. **Con Node.js (http-server):**
+   ```bash
+   npx http-server
+   # Luego abre: http://127.0.0.1:8080/pages/inicio.html
+   ```
+
+### Instrucciones del Juego
+
+- **Modo 1 Jugador:**
+  - Usa el **mouse** para controlar tu nave
+  - **Click izquierdo** para disparar
+  - Destruye enemigos y recoge items
+  - Acumula la máxima puntuación
+
+- **Modo 2 Jugadores:**
+  - **Jugador 1:** Ratón para mover, Click para disparar
+  - **Jugador 2:** Controles en pantalla (según instrucciones)
+  - El jugador con mayor puntuación gana
 
 ---
 
@@ -188,13 +230,48 @@ pages/inicio.html → index.html (juego) → pages/final.html
 
 - ✅ Todo el código está en **vanilla JavaScript** (sin librerías externas)
 - ✅ Usa **Canvas API** para renderizar el juego
+- ✅ Usa **YouTube API** para reproductor de música de fondo
+- ✅ Implementa **localStorage** para highscores y persistencia
 - ✅ Aplica **patrones de estado** para manejar el game state
 - ✅ Los paths son **relativos** para funcionar en cualquier ubicación
 - ✅ Responsive con **Flexbox**
+- ✅ Soporte para **modo multijugador**
+- ✅ **Sistema modular:** Scripts separados por funcionalidad (items, UI, juego)
 
 ---
 
-## 🔧 Guía de Git y Desarrollo Colaborativo
+## 🎁 Sistema de Items Especiales
+
+Cuando destruyes enemigos, hay un **15% de probabilidad** de que caiga un item especial:
+
+| Item | Color | Efecto | Duración |
+|------|-------|--------|----------|
+| **DOUBLE_SHOT** | 🟣 Magenta | Disparo doble simultáneo | 10 segundos |
+| **SHIELD** | 🟦 Cyan | Escudo contra 1 impacto | Hasta usarse |
+| **RECOVERY** | 🟩 Verde | +1 vida (máx 5) | Permanente |
+
+---
+
+## 🏆 Sistema de Highscores
+
+- Se guardan automáticamente en **localStorage**
+- Muestra el **Top 10** de mejores puntajes
+- Se actualiza después de cada partida
+- Persiste entre sesiones del navegador
+
+---
+
+## 🎮 Características Principales
+
+✨ **Modo Multijugador:** Juega solo o con un amigo  
+🌈 **Selección de Color:** Personaliza tu nave (Aqua, Magenta, Gold)  
+📊 **Sistema de Puntuación:** Ranking global de highscores  
+🎵 **Música de Fondo:** Reproducción automática con YouTube API  
+🎁 **Power-ups:** Items especiales que cambian el juego  
+📈 **Dificultad Progresiva:** Aumenta conforme subes de puntuación  
+🎨 **Diseño Retro:** Estética arcade clásica con colores neon  
+
+---
 
 ### 1️⃣ Crear una Nueva Rama (Branch)
 
