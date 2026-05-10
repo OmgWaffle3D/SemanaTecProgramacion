@@ -120,7 +120,7 @@ pages/inicio.html → index.html (juego) → pages/final.html
 - **Items disponibles:**
   - **DOUBLE_SHOT** 🟣 - Disparo doble por 10 segundos
   - **SHIELD** 🟦 - Escudo que protege de 1 impacto
-  - **RECOVERY** 🟩 - Recupera 1 vida (máximo 5)
+  - **RECOVERY** 🔴 - Recupera 1 vida (máximo 5)
 - **Funciones:**
   - `dropItem(x, y)` - 15% de probabilidad de soltar un item
   - `collectItem(item)` - Aplica el efecto del item recolectado
@@ -248,7 +248,7 @@ Cuando destruyes enemigos, hay un **15% de probabilidad** de que caiga un item e
 |------|-------|--------|----------|
 | **DOUBLE_SHOT** | 🟣 Magenta | Disparo doble simultáneo | 10 segundos |
 | **SHIELD** | 🟦 Cyan | Escudo contra 1 impacto | Hasta usarse |
-| **RECOVERY** | 🟩 Verde | +1 vida (máx 5) | Permanente |
+| **RECOVERY** | 🔴 Rojo | +1 vida (máx 5) | Permanente |
 
 ---
 
